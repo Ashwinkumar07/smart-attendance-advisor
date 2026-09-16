@@ -2,7 +2,7 @@
 
 > **AI-Driven Academic Attendance Planner & Search Algorithm Visualizer**  
 > Department of CSE – Artificial Intelligence & Machine Learning  
-> Year II / Sem III / Sec A · Hall J202 · VIT Chennai
+> Year II / Sem III / Sec A · Hall J202 · VEL TECH HIGH TECH  Chennai
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
 [![Tests](https://img.shields.io/badge/Tests-10%2F10%20Passing-brightgreen)](run_tests.py)
@@ -208,5 +208,5 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ---
 
-> **Author**: Aswin · Reg No: `113025148009` · Student ID: `VH15227`  
-> Department of CSE (AI & ML), VIT Chennai · Semester III (2026–2027)
+> **Author**: R Ashwin kumar · Reg No: `113025148009` · Student ID: `VH15227`
+> Department of CSE (AI & ML), VEL TECH HIGH TECH Chennai · Semester III (2026–2027)
