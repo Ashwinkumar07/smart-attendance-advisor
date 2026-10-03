@@ -16,7 +16,10 @@ from src.data_generator import generate_student_profile
 from src.risk_analyzer import AttendanceRiskAnalyzer
 from src.astar_planner import AStarAttendancePlanner
 from src.baseline_search import GreedyBestFirstPlanner, UniformCostPlanner
-from src.visualizer import generate_all_plots
+try:
+    from src.visualizer import generate_all_plots
+except ImportError:
+    generate_all_plots = None
 from src.server import run_web_server
 
 
@@ -66,7 +69,8 @@ def run_algorithm_benchmark(profile):
 
     print("\n--- [A* RECOMMENDED RECOVERY SCHEDULE] ---")
     for note in astar.advisory_notes:
-        print(f"  -> {note}")
+        safe_note = note.encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8')
+        print(f"  -> {safe_note}")
     print("#"*78 + "\n")
 
 
@@ -86,10 +90,13 @@ def main():
     )
 
     if args.plots:
-        print("\nGenerating charts in docs/plots/...")
-        plots = generate_all_plots(profile)
-        print(f"  [+] Saved {plots['subject_plot']}")
-        print(f"  [+] Saved {plots['benchmark_plot']}")
+        if generate_all_plots is None:
+            print("\n  [!] Warning: matplotlib is not installed in this Python environment. Cannot generate plot images.")
+        else:
+            print("\nGenerating charts in docs/plots/...")
+            plots = generate_all_plots(profile)
+            print(f"  [+] Saved {plots['subject_plot']}")
+            print(f"  [+] Saved {plots['benchmark_plot']}")
 
     if args.web:
         run_web_server(port=args.port)
