@@ -126,10 +126,15 @@ def get_single_student_profile(student_id: str) -> Optional[StudentProfile]:
 
 def quick_mark_attendance(student_id: str, course_code: str, mark_type: str) -> dict:
     """
-    Direct logging action:
-      - 'attend': +1 attended, +1 conducted
-      - 'bunk': +1 bunked, +1 conducted
-      - 'od': +1 od_leaves, +1 conducted
+    Logs attendance within a FIXED conducted limit (set by the teacher).
+    conducted is NEVER modified here — it is the teacher-set class count.
+
+    Actions:
+      - 'attend': +1 attended (only if attended + od_leaves < conducted)
+      - 'bunk'  : marks a class as absent; reduces attended by 1 if possible
+                  (bunked is auto-derived as conducted - attended - od_leaves)
+      - 'od'    : +1 od_leaves (only if attended + od_leaves < conducted)
+      - 'undo'  : undoes the last 'attend' — reduces attended by 1
     """
     raw = load_raw_data()
     code = course_code.upper().strip()
@@ -137,20 +142,37 @@ def quick_mark_attendance(student_id: str, course_code: str, mark_type: str) -> 
         raise ValueError("Student or Course not found")
 
     subj = raw[student_id]["subjects"][code]
+    conducted = max(0, subj.get("conducted", 0))
+    attended  = max(0, subj.get("attended",  0))
+    od_leaves = max(0, subj.get("od_leaves", 0))
+
     if mark_type == "attend":
-        subj["attended"] = subj.get("attended", 0) + 1
-        subj["conducted"] = subj.get("conducted", 0) + 1
+        # Only attend if there is still a slot within conducted
+        if attended + od_leaves < conducted:
+            attended += 1
     elif mark_type == "bunk":
-        subj["bunked"] = subj.get("bunked", 0) + 1
-        subj["conducted"] = subj.get("conducted", 0) + 1
+        # A class happened but student was absent; reduce attended if possible
+        if attended > 0:
+            attended -= 1
     elif mark_type == "od":
-        subj["od_leaves"] = subj.get("od_leaves", 0) + 1
-        subj["conducted"] = subj.get("conducted", 0) + 1
+        # Only grant OD if there is still a slot within conducted
+        if attended + od_leaves < conducted:
+            od_leaves += 1
     elif mark_type == "undo":
-        if subj.get("conducted", 0) > 0:
-            subj["conducted"] -= 1
-            if subj.get("attended", 0) > 0:
-                subj["attended"] -= 1
+        # Undo the last attend mark
+        if attended > 0:
+            attended -= 1
+
+    # Hard clamp — attended + od_leaves must never exceed conducted
+    if attended + od_leaves > conducted:
+        attended = max(0, conducted - od_leaves)
+
+    bunked = max(0, conducted - attended - od_leaves)
+
+    subj["attended"]  = attended
+    subj["od_leaves"] = od_leaves
+    subj["bunked"]    = bunked
+    # conducted intentionally NOT modified
 
     save_raw_data(raw)
     return subj
@@ -211,10 +233,15 @@ def upsert_course(student_id: str, course_data: dict) -> dict:
         raw = load_raw_data()
 
     code = course_data["code"].upper().strip()
-    conducted = int(course_data.get("conducted", 0))
-    attended = int(course_data.get("attended", 0))
-    bunked = int(course_data.get("bunked", max(0, conducted - attended)))
-    od_leaves = int(course_data.get("od_leaves", 0))
+    conducted = max(0, int(course_data.get("conducted", 0)))
+    attended = max(0, int(course_data.get("attended", 0)))
+    od_leaves = max(0, int(course_data.get("od_leaves", 0)))
+
+    # Ensure attended + od_leaves <= conducted
+    if attended + od_leaves > conducted:
+        attended = max(0, conducted - od_leaves)
+
+    bunked = max(0, conducted - attended - od_leaves)
 
     raw[student_id]["subjects"][code] = {
         "code": code,
