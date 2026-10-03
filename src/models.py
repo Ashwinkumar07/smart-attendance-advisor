@@ -20,7 +20,12 @@ class Subject:
     credits: int
     difficulty: float               # 0.0 to 1.0 (cognitive strain factor)
     classes_per_week: int
+    acronym: str = ""
     total_planned_classes: int = 60 # Default across full semester
+
+    @property
+    def hours_per_week(self) -> int:
+        return self.classes_per_week
 
 
 @dataclass
