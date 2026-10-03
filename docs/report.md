@@ -93,14 +93,57 @@ Deterministic benchmark evaluation was executed with Seed `113025148009` across 
 
 ---
 
-## 5. Reflection & Honesty Declaration
+---
 
-### Engineering Challenges:
-1. **Permutation Symmetry**: Initial naive search expanded single class increments, causing combinatorial state explosion ($2^{60}$). Restructuring the state space into a canonical subject-depth allocation tree reduced runtime from minutes to $<25$ ms.
-2. **Interactive 3D Visuals**: Integrating Three.js orbital particle gauges and 3D parallax tilt cards while maintaining zero external frontend build steps.
+## 5. Final Project Extension: Policy-Aware Eligibility Reasoner
 
-### Future Work:
-* Incorporate real-time timetable slot collision detection and automated medical certificate OCR validation.
+### A. CSP Layer: Timetable Slot Leave Planner & Constraint Propagation
+- **Variables**: $X_{s,t} \in \{0, 1\}$ representing each future timetable slot $t$ for subject $s$ ($1 = \text{Attend}, 0 = \text{Skip}$).
+- **Constraints**:
+  1. **Statutory Cutoff**: $\forall s, \ \text{Attendance}_s \ge 75.0\%$
+  2. **Mandatory Lab Sessions**: $\forall s \in \text{Labs}, \forall t, \ X_{s,t} = 1$
+  3. **Consecutive Miss Constraint**: No more than $k$ consecutive misses across the scheduled sequence.
+- **Constraint Propagation (Forward Checking / AC-3)**:
+  - Prunes domain values ($D_i = \{1\}$) immediately upon detecting dead-end assignments.
+  - Generates an empirical comparison measuring search effort (nodes visited and backtracks) with vs. without propagation.
 
-### Academic Honesty Declaration:
-*All core search algorithms, mathematical formulations, test suites, and 3D web visualizations were designed, implemented, and verified specifically for this project seeded with Register Number `113025148009` and Student ID `VH15227`.*
+### B. Knowledge & Reasoning Layer: First-Order Logic Proof Trace
+- **First-Order Horn Clauses**:
+  - $\forall s,d \ (\text{OnDuty}(s,d) \land \text{VerifiedOD}(s,d) \rightarrow \text{Present}(s,d))$
+  - $\text{Attendance}(s) \ge 75.0\% \rightarrow \text{StatutoryEligible}(s)$
+  - $65.0\% \le \text{Attendance}(s) < 75.0\% \land \text{MedicalCertificateVerified}(s) \rightarrow \text{CondonationEligible}(s)$
+  - $\text{CondonationEligible}(s) \land \text{DeanApprovalGranted}(s) \rightarrow \text{ApprovedCondonation}(s)$
+  - $\text{IsLab}(s) \land \text{LabAttendance}(s) \ge 80.0\% \rightarrow \text{LabCompliant}(s)$
+  - $\text{IsTheory}(s) \land (\text{StatutoryEligible}(s) \lor \text{ApprovedCondonation}(s)) \rightarrow \text{EligibleForExam}(s)$
+  - $\text{IsLab}(s) \land \text{LabCompliant}(s) \land (\text{StatutoryEligible}(s) \lor \text{ApprovedCondonation}(s)) \rightarrow \text{EligibleForExam}(s)$
+- **Backward-Chaining Proof Engine**: Resolves subgoals from `EligibleForExam(s)` downwards, emitting a structured, human-readable proof trace tree.
+
+### C. Applied & Responsible AI Layer
+- **Weekday Absence Pattern Mining**: Evaluates historical absence rates across Monday–Friday to identify temporal fatigue vulnerabilities.
+- **Explainable AI (XAI)**: Generates natural-language rationales for every subject recommendation.
+- **7-Subject Risk Matrix**: Evaluates all enrolled subjects under Low, Medium, and High risk classifications.
+- **Ethical Safeguards & Anonymization**: Privacy-preserving pseudonymization (`STU_XXXXX`) with an explicit Responsible AI notice ensuring the system serves as an emergency academic planning tool rather than an absenteeism optimizer.
+
+---
+
+## 6. Verification & Automated Test Suite
+
+Validated by **18 automated unit tests** (`run_tests.py`):
+- `test_attendance_math.py`: 5 tests (safe bunks, deficit recovery, OD credits).
+- `test_astar_planner.py`: 3 tests (A* search optimality, UCS benchmark, Greedy comparison).
+- `test_risk_analyzer.py`: 2 tests (risk tiers, what-if simulator).
+- `test_csp_planner.py`: 3 tests (CSP leave plans, mandatory lab constraints, propagation metrics).
+- `test_policy_reasoner.py`: 2 tests (direct statutory eligibility, medical condonation proof trace).
+- `test_responsible_ai.py`: 3 tests (data anonymization, weekday pattern analysis, 7-subject risk matrix).
+
+```
+Ran 18 tests in 1.746s
+OK (100% Success Rate)
+```
+
+---
+
+## 7. Academic Honesty Declaration
+
+*All core search algorithms, CSP constraint solvers, First-Order Logic inference engines, responsible AI risk models, and web visualizers were designed, implemented, and verified specifically for this project seeded with Register Number `113025148009` and Student ID `VH15227`.*
+
