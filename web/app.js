@@ -28,12 +28,41 @@ const OFFICIAL_SUBJECTS = [
 // 1. INIT
 // ================================================================
 document.addEventListener("DOMContentLoaded", async () => {
+    setupModuleTabs();
     setupModalListeners();
     setupActionButtons();
     await loadStudentRoster();
     await loadStudentProfile(activeStudentId);
     setupWorkflowControls();
 });
+
+function setupModuleTabs() {
+    const tabBtns = document.querySelectorAll(".nav-tab-btn");
+    const tabPanes = document.querySelectorAll(".tab-pane");
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const target = btn.getAttribute("data-tab");
+
+            // Update button active state
+            tabBtns.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+
+            // Switch views
+            if (target === "tab-all") {
+                tabPanes.forEach(p => p.classList.add("active"));
+            } else {
+                tabPanes.forEach(p => {
+                    if (p.id === target) {
+                        p.classList.add("active");
+                    } else {
+                        p.classList.remove("active");
+                    }
+                });
+            }
+        });
+    });
+}
 
 // ================================================================
 // 2. STUDENT ROSTER & PROFILE
@@ -158,7 +187,7 @@ function renderCoursesTable(data) {
     const tbody = document.getElementById("courses-table-body");
     tbody.innerHTML = "";
     if (!data.subject_breakdown?.length) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:24px">No courses. Click <strong>+ Add Course</strong>.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">No courses. Click <strong>+ Add Course</strong>.</td></tr>`;
         return;
     }
     data.subject_breakdown.forEach(s => {
@@ -171,17 +200,24 @@ function renderCoursesTable(data) {
             : `<span class="advice-badge safe">Can skip ${safeBunks} classes</span>`;
 
         const pctColor = s.percentage < 75 ? "var(--red-critical)" : s.percentage < 80 ? "var(--amber-warn)" : "var(--green-safe)";
+        const barColor = s.percentage < 75 ? "#ef4444" : s.percentage < 80 ? "#f59e0b" : "#10b981";
+
         tr.innerHTML = `
-          <td class="course-code-cell">${s.code}<br><small style="color:var(--text-muted)">(${s.acronym || s.code})</small></td>
-          <td><strong>${s.name}</strong></td>
-          <td>${s.hours_per_week || 4} hrs</td>
+          <!-- 1. Course Details Compound Cell -->
           <td>
-            <div class="stepper-widget stepper-conducted">
-              <button class="stepper-btn" onclick="modifyCount('${s.code}','conducted',-1)">-</button>
-              <input type="number" class="stepper-input" id="input-cond-${s.code}" value="${s.conducted}" min="0" onchange="setCount('${s.code}','conducted',this.value)">
-              <button class="stepper-btn" onclick="modifyCount('${s.code}','conducted',1)">+</button>
+            <div class="course-cell-compound">
+              <span class="course-code-line">${s.acronym || s.code} <small style="font-weight:600; color:var(--text-muted);">(${s.code})</small></span>
+              <span class="course-name-line">${s.name}</span>
+              <span class="course-meta-line">${s.hours_per_week || 4} hrs/wk • ${s.credits || 3} Credits</span>
             </div>
           </td>
+
+          <!-- 2. Conducted Badge -->
+          <td style="text-align:center;">
+            <span class="conducted-pill" id="held-${s.code}">${s.conducted} Held</span>
+          </td>
+
+          <!-- 3. Present Stepper -->
           <td>
             <div class="stepper-widget stepper-attend">
               <button class="stepper-btn" onclick="modifyCount('${s.code}','attended',-1)">-</button>
@@ -189,6 +225,8 @@ function renderCoursesTable(data) {
               <button class="stepper-btn" onclick="modifyCount('${s.code}','attended',1)">+</button>
             </div>
           </td>
+
+          <!-- 4. Absent Stepper -->
           <td>
             <div class="stepper-widget stepper-bunk">
               <button class="stepper-btn" onclick="modifyCount('${s.code}','bunked',-1)">-</button>
@@ -196,16 +234,31 @@ function renderCoursesTable(data) {
               <button class="stepper-btn" onclick="modifyCount('${s.code}','bunked',1)">+</button>
             </div>
           </td>
+
+          <!-- 5. OD Stepper -->
           <td>
             <div class="stepper-widget stepper-od">
               <button class="stepper-btn" onclick="modifyCount('${s.code}','od_leaves',-1)">-</button>
-              <input type="number" class="stepper-input" id="input-od-${s.code}" value="${s.od_leaves||0}" min="0" onchange="setCount('${s.code}','od_leaves',this.value)">
+              <input type="number" class="stepper-input" id="input-od-${s.code}" value="${s.od_leaves || 0}" min="0" onchange="setCount('${s.code}','od_leaves',this.value)">
               <button class="stepper-btn" onclick="modifyCount('${s.code}','od_leaves',1)">+</button>
             </div>
           </td>
-          <td class="course-pct-cell" id="pct-${s.code}" style="color:${pctColor}">${s.percentage}%</td>
+
+          <!-- 6. Progress & Percentage -->
+          <td class="pct-progress-cell">
+            <span class="pct-number" id="pct-${s.code}" style="color:${pctColor};">${s.percentage}%</span>
+            <div class="mini-prog-bar">
+              <div class="mini-prog-fill" style="width:${Math.min(s.percentage, 100)}%; background-color:${barColor};"></div>
+            </div>
+          </td>
+
+          <!-- 7. Status Badge -->
           <td><span class="status-badge ${s.risk_tier}" id="badge-${s.code}">${s.risk_tier}</span></td>
+
+          <!-- 8. Smart Advice -->
           <td id="advice-${s.code}">${adviceHtml}</td>
+
+          <!-- 9. Actions -->
           <td>
             <div class="action-btn-group">
               <button class="btn-icon-action" onclick="openEditCourseModal('${s.code}')" title="Edit">✏️</button>
