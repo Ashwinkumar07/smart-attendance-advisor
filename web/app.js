@@ -83,21 +83,44 @@ function renderDashboard(data) {
     recalcKPIs(data);
     renderCoursesTable(data);
     renderSimulator(data);
+    renderFOLCourseOptions(data);
+    loadResponsibleAI();
 }
 
 function recalcKPIs(data) {
     let totC = 0, totA = 0, crit = 0, warn = 0, safe = 0;
     data.subject_breakdown.forEach(s => {
-        const eff = (s.attended || 0) + (s.od_leaves || 0);
-        const cond = s.conducted || 0;
-        const pct = cond > 0 ? +((eff / cond) * 100).toFixed(1) : 100;
-        s.percentage = pct; s.effective_attended = eff;
-        if      (pct < 75)  { s.risk_tier = "Critical"; crit++; }
-        else if (pct < 80)  { s.risk_tier = "Warning";  warn++; }
-        else                { s.risk_tier = "Safe";     safe++; }
-        totC += cond; totA += eff;
+        const cond = Math.max(0, parseInt(s.conducted) || 0);
+        s.conducted = cond;
+        
+        let att  = Math.max(0, parseInt(s.attended) || 0);
+        let od   = Math.max(0, parseInt(s.od_leaves) || 0);
+        
+        // Ensure present + OD <= conducted
+        if (att + od > cond) {
+            att = Math.max(0, cond - od);
+        }
+        s.attended = att;
+        s.od_leaves = od;
+        
+        // Bunked (Absent) is strictly the remaining classes conducted
+        const bunk = Math.max(0, cond - att - od);
+        s.bunked = bunk;
+
+        const eff = att + od;
+        s.effective_attended = eff;
+
+        const pct = cond > 0 ? +((eff / cond) * 100).toFixed(1) : 100.0;
+        s.percentage = pct;
+        
+        if      (pct < 75.0) { s.risk_tier = "Critical"; crit++; }
+        else if (pct < 80.0) { s.risk_tier = "Warning";  warn++; }
+        else                 { s.risk_tier = "Safe";     safe++; }
+        
+        totC += cond;
+        totA += eff;
     });
-    const oPct = totC > 0 ? +((totA / totC) * 100).toFixed(1) : 100;
+    const oPct = totC > 0 ? +((totA / totC) * 100).toFixed(1) : 100.0;
     data.overall_percentage = oPct;
     data.overall_conducted  = totC;
     data.overall_attended   = totA;
@@ -152,7 +175,13 @@ function renderCoursesTable(data) {
           <td class="course-code-cell">${s.code}<br><small style="color:var(--text-muted)">(${s.acronym || s.code})</small></td>
           <td><strong>${s.name}</strong></td>
           <td>${s.hours_per_week || 4} hrs</td>
-          <td><strong id="held-${s.code}">${s.conducted}</strong></td>
+          <td>
+            <div class="stepper-widget stepper-conducted">
+              <button class="stepper-btn" onclick="modifyCount('${s.code}','conducted',-1)">-</button>
+              <input type="number" class="stepper-input" id="input-cond-${s.code}" value="${s.conducted}" min="0" onchange="setCount('${s.code}','conducted',this.value)">
+              <button class="stepper-btn" onclick="modifyCount('${s.code}','conducted',1)">+</button>
+            </div>
+          </td>
           <td>
             <div class="stepper-widget stepper-attend">
               <button class="stepper-btn" onclick="modifyCount('${s.code}','attended',-1)">-</button>
@@ -163,7 +192,7 @@ function renderCoursesTable(data) {
           <td>
             <div class="stepper-widget stepper-bunk">
               <button class="stepper-btn" onclick="modifyCount('${s.code}','bunked',-1)">-</button>
-              <input type="number" class="stepper-input" id="input-bunk-${s.code}" value="${s.bunked||0}" min="0" onchange="setCount('${s.code}','bunked',this.value)">
+              <input type="number" class="stepper-input" id="input-bunk-${s.code}" value="${s.bunked || 0}" min="0" onchange="setCount('${s.code}','bunked',this.value)">
               <button class="stepper-btn" onclick="modifyCount('${s.code}','bunked',1)">+</button>
             </div>
           </td>
@@ -188,14 +217,49 @@ function renderCoursesTable(data) {
 }
 
 // ================================================================
-// 4. LIVE STEPPER ACTIONS
+// 4. LIVE STEPPER ACTIONS (Conducted STABLE & Present/Absent/OD Bounded)
 // ================================================================
 window.modifyCount = async (code, field, delta) => {
     if (!currentStudentData) return;
     const s = currentStudentData.subject_breakdown.find(x => x.code === code);
     if (!s) return;
-    s[field] = Math.max(0, (parseInt(s[field]) || 0) + delta);
-    s.conducted = (s.attended || 0) + (s.bunked || 0) + (s.od_leaves || 0);
+
+    let cond = Math.max(0, parseInt(s.conducted) || 0);
+    let att  = Math.max(0, parseInt(s.attended) || 0);
+    let od   = Math.max(0, parseInt(s.od_leaves) || 0);
+    let bunk = Math.max(0, parseInt(s.bunked) || 0);
+
+    if (field === 'conducted') {
+        cond = Math.max(0, cond + delta);
+        s.conducted = cond;
+        if (att + od > cond) {
+            att = Math.max(0, cond - od);
+            s.attended = att;
+        }
+        s.bunked = Math.max(0, cond - att - od);
+    } else if (field === 'attended') {
+        att = Math.max(0, att + delta);
+        if (att + od > cond) {
+            att = Math.max(0, cond - od);
+        }
+        s.attended = att;
+        s.bunked = Math.max(0, cond - att - od);
+    } else if (field === 'od_leaves') {
+        od = Math.max(0, od + delta);
+        if (att + od > cond) {
+            od = Math.max(0, cond - att);
+        }
+        s.od_leaves = od;
+        s.bunked = Math.max(0, cond - att - od);
+    } else if (field === 'bunked') {
+        bunk = Math.max(0, bunk + delta);
+        if (bunk > cond - od) {
+            bunk = Math.max(0, cond - od);
+        }
+        s.bunked = bunk;
+        s.attended = Math.max(0, cond - bunk - od);
+    }
+
     recalcKPIs(currentStudentData);
     renderCoursesTable(currentStudentData);
     renderSimulator(currentStudentData);
@@ -207,8 +271,29 @@ window.setCount = async (code, field, val) => {
     if (!currentStudentData) return;
     const s = currentStudentData.subject_breakdown.find(x => x.code === code);
     if (!s) return;
-    s[field] = Math.max(0, parseInt(val) || 0);
-    s.conducted = (s.attended || 0) + (s.bunked || 0) + (s.od_leaves || 0);
+
+    const numVal = Math.max(0, parseInt(val) || 0);
+    let cond = Math.max(0, parseInt(s.conducted) || 0);
+    let att  = Math.max(0, parseInt(s.attended) || 0);
+    let od   = Math.max(0, parseInt(s.od_leaves) || 0);
+
+    if (field === 'conducted') {
+        s.conducted = numVal;
+        if (att + od > s.conducted) {
+            s.attended = Math.max(0, s.conducted - od);
+        }
+        s.bunked = Math.max(0, s.conducted - s.attended - od);
+    } else if (field === 'attended') {
+        s.attended = Math.min(numVal, cond - od);
+        s.bunked = Math.max(0, cond - s.attended - od);
+    } else if (field === 'od_leaves') {
+        s.od_leaves = Math.min(numVal, cond - att);
+        s.bunked = Math.max(0, cond - att - s.od_leaves);
+    } else if (field === 'bunked') {
+        s.bunked = Math.min(numVal, cond - od);
+        s.attended = Math.max(0, cond - s.bunked - od);
+    }
+
     recalcKPIs(currentStudentData);
     renderCoursesTable(currentStudentData);
     renderSimulator(currentStudentData);
@@ -826,9 +911,9 @@ function setupModalListeners() {
         ["inp-course-acronym","inp-course-name","inp-course-faculty"].forEach(id => document.getElementById(id).value = "");
         document.getElementById("inp-course-credits").value = 4;
         document.getElementById("inp-course-hours").value   = 4;
-        document.getElementById("inp-course-attended").value = 28;
-        document.getElementById("inp-course-bunked").value   = 7;
-        document.getElementById("inp-course-od").value       = 1;
+        if (document.getElementById("inp-course-conducted")) document.getElementById("inp-course-conducted").value = 36;
+        document.getElementById("inp-course-attended").value = 30;
+        document.getElementById("inp-course-od").value       = 0;
         document.getElementById("btn-save-course-text").textContent = "Add Course";
         cMod.classList.add("active");
     };
@@ -839,9 +924,17 @@ function setupModalListeners() {
 
     document.getElementById("subject-form").addEventListener("submit", async e => {
         e.preventDefault();
-        const att = parseInt(document.getElementById("inp-course-attended").value)||0;
-        const bunk= parseInt(document.getElementById("inp-course-bunked").value)||0;
-        const od  = parseInt(document.getElementById("inp-course-od").value)||0;
+        // conducted is the teacher-set fixed limit — never auto-inflate it
+        const conducted = Math.max(0, parseInt(document.getElementById("inp-course-conducted")?.value) || 0);
+        let att = Math.max(0, parseInt(document.getElementById("inp-course-attended").value) || 0);
+        let od  = Math.max(0, parseInt(document.getElementById("inp-course-od").value) || 0);
+
+        // Clamp: attended + od_leaves must never exceed conducted
+        if (att + od > conducted) {
+            att = Math.max(0, conducted - od);
+        }
+        const bunked = Math.max(0, conducted - att - od);
+
         const payload = {
             code: document.getElementById("inp-course-code").value.trim().toUpperCase(),
             acronym: document.getElementById("inp-course-acronym").value.trim().toUpperCase(),
@@ -849,7 +942,7 @@ function setupModalListeners() {
             credits: parseInt(document.getElementById("inp-course-credits").value),
             hours_per_week: parseInt(document.getElementById("inp-course-hours").value),
             faculty: document.getElementById("inp-course-faculty").value.trim(),
-            conducted: att + bunk + od, attended: att, bunked: bunk, od_leaves: od
+            conducted, attended: att, bunked, od_leaves: od
         };
         const res = await fetch(`/api/students/${activeStudentId}/subjects`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         if (res.ok) { cMod.classList.remove("active"); await loadStudentProfile(activeStudentId); }
@@ -868,9 +961,9 @@ window.openEditCourseModal = (code) => {
     document.getElementById("inp-course-credits").value = s.credits || 3;
     document.getElementById("inp-course-hours").value   = s.hours_per_week || 4;
     document.getElementById("inp-course-faculty").value = s.faculty || "";
-    document.getElementById("inp-course-attended").value= s.attended;
-    document.getElementById("inp-course-bunked").value  = s.bunked || 0;
-    document.getElementById("inp-course-od").value      = s.od_leaves || 0;
+    if (document.getElementById("inp-course-conducted")) document.getElementById("inp-course-conducted").value = s.conducted || 0;
+    document.getElementById("inp-course-attended").value = s.attended || 0;
+    document.getElementById("inp-course-od").value       = s.od_leaves || 0;
     document.getElementById("btn-save-course-text").textContent = "Save Changes";
     document.getElementById("subject-modal").classList.add("active");
 };
@@ -882,6 +975,333 @@ window.deleteCourse = async (code) => {
 };
 
 function setupActionButtons() {
-    document.getElementById("btn-recompute-plan").onclick = () => fetchAdvisory("astar");
-    document.getElementById("btn-print-report").onclick   = () => window.print();
+    if (document.getElementById("btn-recompute-plan")) {
+        document.getElementById("btn-recompute-plan").onclick = () => fetchAdvisory("astar");
+    }
+    if (document.getElementById("btn-print-report")) {
+        document.getElementById("btn-print-report").onclick = () => window.print();
+    }
+    setupCSPOperations();
+    setupFOLOperations();
 }
+
+// ================================================================
+// 10. CSP TIMETABLE LEAVE PLANNER (CONSTRAINT PROPAGATION BENCHMARK)
+// ================================================================
+function setupCSPOperations() {
+    const btn = document.getElementById("btn-run-csp");
+    if (!btn) return;
+    btn.onclick = async () => {
+        const weeks = document.getElementById("csp-weeks-select")?.value || 1;
+        const maxSkips = document.getElementById("csp-max-skips-select")?.value || 2;
+        btn.textContent = "⏳ Solving CSP...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/students/${activeStudentId}/csp?weeks=${weeks}&max_consecutive=${maxSkips}`);
+            if (!res.ok) throw new Error("Failed to compute CSP solutions.");
+            const data = await res.json();
+            renderCSPResults(data);
+        } catch (err) {
+            console.error(err);
+            alert("Error solving CSP leave plan: " + err.message);
+        } finally {
+            btn.textContent = "⚡ Solve Feasible Leaves (CSP)";
+            btn.disabled = false;
+        }
+    };
+}
+
+function renderCSPResults(data) {
+    const effort = data.search_effort_comparison;
+    const bt = effort.without_propagation;
+    const fc = effort.with_propagation;
+    const gain = effort.efficiency_gain;
+
+    // Update Comparison Strip
+    document.getElementById("csp-bt-nodes").textContent = bt.nodes_visited;
+    document.getElementById("csp-bt-backtracks").textContent = bt.backtracks;
+    document.getElementById("csp-bt-checks").textContent = bt.constraint_checks;
+    document.getElementById("csp-bt-time").textContent = `${bt.runtime_ms} ms`;
+
+    document.getElementById("csp-fc-nodes").textContent = fc.nodes_visited;
+    document.getElementById("csp-fc-backtracks").textContent = fc.backtracks;
+    document.getElementById("csp-fc-checks").textContent = fc.constraint_checks;
+    document.getElementById("csp-fc-time").textContent = `${fc.runtime_ms} ms`;
+
+    document.getElementById("csp-gain-pct").textContent = `${gain.node_reduction_percent}%`;
+    document.getElementById("csp-gain-desc").textContent = `Pruned ${gain.backtrack_reduction} dead-end backtracks. ${gain.analysis}`;
+
+    // Render Feasible Leave Plans
+    const container = document.getElementById("csp-solutions-container");
+    container.innerHTML = "";
+
+    if (!data.feasible_plans || data.feasible_plans.length === 0) {
+        container.innerHTML = `
+          <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:16px; color:#dc2626;">
+            <strong>No Feasible Leave Plans Found:</strong> All remaining slots in this window are required to satisfy the 75% statutory threshold and mandatory lab constraints.
+          </div>`;
+        return;
+    }
+
+    const heading = document.createElement("h3");
+    heading.style.fontSize = "0.95rem";
+    heading.style.fontWeight = "700";
+    heading.style.marginBottom = "10px";
+    heading.textContent = `Found ${data.feasible_plans_count} Feasible Leave Schedule(s) without Violating Attendance or Lab Rules:`;
+    container.appendChild(heading);
+
+    data.feasible_plans.forEach((plan, idx) => {
+        const card = document.createElement("div");
+        card.style.background = "#ffffff";
+        card.style.border = "1px solid var(--border-color)";
+        card.style.borderRadius = "8px";
+        card.style.padding = "14px 18px";
+        card.style.marginBottom = "12px";
+        card.style.boxShadow = "var(--shadow-sm)";
+
+        let skippedPills = plan.skipped_classes.map(c => 
+            `<span style="display:inline-block; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:12px; margin:2px;">
+               ${c.day} P${c.period}: ${c.acronym} (${c.time_str})
+             </span>`
+        ).join(" ");
+
+        if (!skippedPills) {
+            skippedPills = `<span style="color:#059669; font-weight:600; font-size:0.85rem;">Full Attendance (Zero Skips)</span>`;
+        }
+
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:var(--primary-blue); font-size:0.9rem;">Leave Plan Option #${idx + 1}</strong>
+            <span style="font-size:0.8rem; font-weight:700; color:#059669; background:#ecfdf5; padding:2px 8px; border-radius:12px;">
+              Attended: ${plan.attended_slots} / ${plan.total_slots} slots (${plan.skipped_slots_count} Skips)
+            </span>
+          </div>
+          <div style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:6px;">
+            <strong>Permitted Planned Skips:</strong>
+          </div>
+          <div style="margin-bottom:10px;">${skippedPills}</div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// ================================================================
+// 11. FOL POLICY & ELIGIBILITY REASONER (BACKWARD-CHAINING TRACE)
+// ================================================================
+function setupFOLOperations() {
+    const btn = document.getElementById("btn-run-fol");
+    if (!btn) return;
+    btn.onclick = async () => {
+        const subjCode = document.getElementById("fol-subject-select")?.value;
+        if (!subjCode) return alert("Select a course first.");
+        const hasMed = document.getElementById("fol-med-checkbox")?.checked || false;
+        const isApproved = document.getElementById("fol-dean-checkbox")?.checked || false;
+
+        btn.textContent = "⏳ Inferencing...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/students/${activeStudentId}/eligibility?subject=${subjCode}&has_medical=${hasMed}&dean_approved=${isApproved}`);
+            if (!res.ok) throw new Error("Failed to run FOL policy reasoner.");
+            const data = await res.json();
+            renderFOLResults(data);
+        } catch (err) {
+            console.error(err);
+            alert("Error in policy reasoner: " + err.message);
+        } finally {
+            btn.textContent = "🔍 Verify Exam Eligibility & Trace";
+            btn.disabled = false;
+        }
+    };
+}
+
+function renderFOLCourseOptions(data) {
+    const sel = document.getElementById("fol-subject-select");
+    if (!sel || !data?.subject_breakdown) return;
+    const currentVal = sel.value;
+    sel.innerHTML = "";
+    data.subject_breakdown.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.code;
+        opt.textContent = `${s.acronym || s.code} - ${s.name} (${s.percentage}%)`;
+        if (s.code === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+
+function renderFOLResults(data) {
+    const verdictBox = document.getElementById("fol-verdict-box");
+    const badge = document.getElementById("fol-verdict-badge");
+    const text = document.getElementById("fol-verdict-text");
+    const queryDisplay = document.getElementById("fol-query-display");
+
+    verdictBox.style.display = "block";
+    badge.textContent = data.status;
+    badge.style.background = data.is_eligible ? "#10b981" : "#ef4444";
+    text.textContent = data.recommendation;
+    queryDisplay.textContent = `EligibleForExam(${data.acronym || data.subject_code})`;
+
+    // Render Proof Trace Console
+    const logBox = document.getElementById("fol-proof-log");
+    const traceBadge = document.getElementById("fol-trace-badge");
+    traceBadge.textContent = data.is_eligible ? "Goal Proven TRUE ✅" : "Goal Ineligible ❌";
+    traceBadge.style.background = data.is_eligible ? "#064e3b" : "#7f1d1d";
+    traceBadge.style.color = data.is_eligible ? "#34d399" : "#f87171";
+
+    logBox.innerHTML = "";
+    data.proof_trace.forEach(step => {
+        const div = document.createElement("div");
+        div.style.padding = "4px 6px";
+        div.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+        
+        const statusColor = step.status === "PASS" || step.status === "SUCCESS" ? "#34d399" : (step.status === "FAIL" ? "#f87171" : "#93c5fd");
+        div.innerHTML = `
+          <span style="color:#64748b;">[Step ${step.step}]</span> 
+          <strong style="color:${statusColor};">${step.action}</strong> &rarr; 
+          <span style="color:#e2e8f0;">${step.explanation}</span>
+        `;
+        logBox.appendChild(div);
+    });
+}
+
+// ================================================================
+// 12. APPLIED & RESPONSIBLE AI RISK TABLE & PATTERNS
+// ================================================================
+async function loadResponsibleAI() {
+    try {
+        const res = await fetch(`/api/students/${activeStudentId}/risk-analysis`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Anonymization Token
+        if (document.getElementById("rai-anonymized-id")) {
+            document.getElementById("rai-anonymized-id").textContent = data.pseudonym_id;
+        }
+
+        // Weekday Pattern Pills
+        const wp = data.weekday_absence_pattern;
+        if (document.getElementById("rai-pattern-desc")) {
+            document.getElementById("rai-pattern-desc").textContent = wp.pattern_summary;
+        }
+        const pillsBox = document.getElementById("rai-weekday-pills");
+        if (pillsBox && wp.weekday_breakdown) {
+            pillsBox.innerHTML = "";
+            Object.entries(wp.weekday_breakdown).forEach(([day, stats]) => {
+                const pill = document.createElement("span");
+                const isPeak = day === wp.peak_day;
+                pill.style.padding = "3px 8px";
+                pill.style.borderRadius = "12px";
+                pill.style.fontSize = "0.72rem";
+                pill.style.fontWeight = "700";
+                pill.style.background = isPeak ? "#dc2626" : "#fef3c7";
+                pill.style.color = isPeak ? "#ffffff" : "#92400e";
+                pill.style.border = isPeak ? "1px solid #b91c1c" : "1px solid #fde68a";
+                pill.textContent = `${day.substring(0,3)}: ${stats.absence_share_pct}%`;
+                pillsBox.appendChild(pill);
+            });
+        }
+
+        // 7-Subject Comprehensive Risk Table
+        const tbody = document.getElementById("rai-risk-table-body");
+        if (tbody && data.risk_table) {
+            tbody.innerHTML = "";
+            data.risk_table.forEach(row => {
+                const tr = document.createElement("tr");
+                const badgeColor = row.risk_level === "High" ? "#dc2626" : (row.risk_level === "Medium" ? "#d97706" : "#059669");
+                const badgeBg = row.risk_level === "High" ? "#fef2f2" : (row.risk_level === "Medium" ? "#fffbeb" : "#f0fdf4");
+                const pctColor = row.percentage < 75 ? "#dc2626" : (row.percentage < 80 ? "#d97706" : "#059669");
+
+                tr.innerHTML = `
+                  <td style="font-weight:700; color:var(--primary-blue);">
+                    ${row.acronym || row.code} 
+                    <small style="color:var(--text-muted); display:block; font-weight:400;">${row.name}</small>
+                  </td>
+                  <td style="font-weight:700; color:${pctColor};">${row.percentage}%</td>
+                  <td>
+                    <span style="font-weight:800; font-size:0.75rem; text-transform:uppercase; padding:3px 8px; border-radius:12px; background:${badgeBg}; color:${badgeColor}; border:1px solid ${badgeColor};">
+                      ${row.risk_level}
+                    </span>
+                  </td>
+                  <td style="font-weight:600; color:#059669;">${row.safe_bunks} classes</td>
+                  <td style="font-weight:600; color:#dc2626;">${row.percentage < 75 ? `+${row.classes_needed_75}` : "0"}</td>
+                  <td style="font-size:0.8rem; color:var(--text-secondary); line-height:1.4;">
+                    ${row.xai_explanation}
+                  </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (e) {
+        console.error("Error loading Responsible AI data:", e);
+    }
+}
+
+
+// ================================================================
+// 9. MODAL BIDIRECTIONAL RECALCULATOR
+// ================================================================
+/**
+ * Bidirectional recalculator for the Add/Edit Course modal.
+ * Invariant: Present + Absent + OD = Conducted  (always, Conducted is fixed)
+ *
+ * field = which field the user just edited:
+ *   'conducted' → clamp Present if needed, recalc Absent
+ *   'attended'  → recalc Absent = Conducted - Present - OD
+ *   'absent'    → recalc Present = Conducted - Absent - OD
+ *   'od'        → recalc Absent = Conducted - Present - OD
+ */
+window.recalcModal = function(field) {
+    const condEl  = document.getElementById("inp-course-conducted");
+    const attEl   = document.getElementById("inp-course-attended");
+    const absenEl = document.getElementById("inp-course-bunked");
+    const odEl    = document.getElementById("inp-course-od");
+    if (!condEl || !attEl || !absenEl || !odEl) return;
+
+    let cond   = Math.max(0, parseInt(condEl.value)  || 0);
+    let att    = Math.max(0, parseInt(attEl.value)   || 0);
+    let absent = Math.max(0, parseInt(absenEl.value) || 0);
+    let od     = Math.max(0, parseInt(odEl.value)    || 0);
+
+    if (field === 'conducted') {
+        // Conducted changed — clamp Present if needed, Absent auto-follows
+        if (att + od > cond) att = Math.max(0, cond - od);
+        if (att + od > cond) od  = Math.max(0, cond - att);
+        absent = Math.max(0, cond - att - od);
+        attEl.value   = att;
+        absenEl.value = absent;
+
+    } else if (field === 'attended') {
+        // Present changed — cap at (Conducted - OD), recalc Absent
+        att = Math.min(att, cond - od);
+        absent = Math.max(0, cond - att - od);
+        attEl.value   = att;
+        absenEl.value = absent;
+
+    } else if (field === 'absent') {
+        // Absent changed — cap at (Conducted - OD), recalc Present
+        absent = Math.min(absent, cond - od);
+        att    = Math.max(0, cond - absent - od);
+        absenEl.value = absent;
+        attEl.value   = att;
+
+    } else if (field === 'od') {
+        // OD changed — cap at (Conducted - Present), recalc Absent
+        od = Math.min(od, cond - att);
+        absent = Math.max(0, cond - att - od);
+        odEl.value    = od;
+        absenEl.value = absent;
+    }
+
+    // Visual cue on Absent field
+    absenEl.style.color = absent > 0 ? "#f87171" : "#94a3b8";
+
+    // Show a live inline validation note
+    const total = att + absent + od;
+    absenEl.title = total === cond
+        ? `\u2705 Present(${att}) + Absent(${absent}) + OD(${od}) = Conducted(${cond})`
+        : `\u26a0\ufe0f Warning: ${att}+${absent}+${od}=${total} \u2260 ${cond}`;
+};
+
+// Backward compat alias
+window.recalcModalAbsent = () => window.recalcModal('attended');
