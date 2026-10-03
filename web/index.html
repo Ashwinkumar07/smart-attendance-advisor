@@ -1,141 +1,279 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Smart Attendance Advisor | Academic Intelligence Portal</title>
+
     <link rel="stylesheet" href="styles.css">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
+
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
+
 <body class="app-theme">
+
     <!-- Top Navigation Header -->
+
     <header class="top-nav">
+
         <div class="nav-container">
+
             <div class="nav-brand">
+
                 <div class="brand-logo">
+
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+
                         <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+
                         <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+
                     </svg>
+
                 </div>
+
                 <div class="brand-info">
+
                     <span class="brand-title">Smart Attendance Advisor</span>
+
                     <span class="brand-badge">CSE AI&amp;ML • Sem III</span>
+
                 </div>
+
             </div>
+
+
 
             <!-- Student Roster Switcher & Controls -->
+
             <div class="nav-controls">
+
                 <div class="student-select-wrapper">
+
                     <label for="student-dropdown" class="select-label">Active Student:</label>
+
                     <select id="student-dropdown" class="student-dropdown">
+
                         <!-- Populated dynamically -->
+
                     </select>
+
                 </div>
+
+
 
                 <button class="btn btn-secondary" id="btn-open-new-student-modal">
+
                     + New Student
+
                 </button>
+
+
 
                 <button class="btn btn-primary" id="btn-open-subject-modal">
+
                     + Add Course
+
                 </button>
+
             </div>
+
         </div>
+
     </header>
 
+
+
     <!-- Main Container -->
+
     <main class="main-layout">
+
         
+
         <!-- Official Department Header & Student Profile Banner -->
+
         <section class="profile-banner">
+
             <div class="profile-header-left">
+
                 <div class="avatar-circle" id="profile-avatar">AS</div>
+
                 <div class="profile-details">
+
                     <div class="name-row">
+
                         <h1 id="profile-name">Aswin</h1>
+
                         <span class="status-badge" id="profile-status-badge">Warning</span>
+
                         <button class="btn-chip" id="btn-edit-active-student" title="Edit Student Profile Details">
+
                             ✏️ Edit Student Info
+
                         </button>
+
                     </div>
+
                     <div class="meta-row">
+
                         <span><strong>Student ID:</strong> <span id="meta-student-id">VH15227</span></span>
+
                         <span class="meta-divider">•</span>
+
                         <span><strong>Reg No:</strong> <span id="meta-reg-no">113025148009</span></span>
+
                         <span class="meta-divider">•</span>
+
                         <span><strong>Class:</strong> Year II / Sem III / Sec A (Hall: J202)</span>
+
                         <span class="meta-divider">•</span>
+
                         <span><strong>Class-In-Charge:</strong> Mrs. J Mary Hanna Priyadharshini, AP</span>
+
                     </div>
+
                 </div>
+
             </div>
+
             <div class="profile-actions">
+
                 <button class="btn btn-outline" id="btn-print-report">
+
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+
                     Print Audit Report
+
                 </button>
+
             </div>
+
         </section>
+
+
 
         <!-- KPI Metrics Grid -->
+
         <section class="kpi-grid">
+
             <div class="kpi-card">
+
                 <div class="kpi-header">
+
                     <span class="kpi-title">Cumulative Attendance</span>
+
                     <span class="kpi-icon icon-blue">📊</span>
+
                 </div>
+
                 <div class="kpi-value-row">
+
                     <span class="kpi-value" id="kpi-overall-pct">--%</span>
+
                     <span class="kpi-subtext" id="kpi-stat-ratio">-- / -- Hours</span>
+
                 </div>
+
                 <div class="kpi-progress-bar">
+
                     <div class="kpi-progress-fill" id="kpi-progress-bar" style="width: 0%;"></div>
+
                 </div>
+
                 <span class="kpi-foot">Statutory Detention Cutoff: 75.0%</span>
+
             </div>
 
+
+
             <div class="kpi-card">
+
                 <div class="kpi-header">
+
                     <span class="kpi-title">Critical Deficit Courses</span>
-                    <span class="kpi-icon icon-red">⚠️</span>
+
+                    <span class="kpi-icon icon-red">⚠️ï¸</span>
+
                 </div>
+
                 <div class="kpi-value-row">
+
                     <span class="kpi-value text-red" id="kpi-critical-count">0</span>
+
                     <span class="kpi-subtext">Courses &lt; 75%</span>
+
                 </div>
+
                 <p class="kpi-desc" id="kpi-critical-desc">No courses currently in detention risk.</p>
+
             </div>
 
+
+
             <div class="kpi-card">
+
                 <div class="kpi-header">
+
                     <span class="kpi-title">Borderline Warning</span>
+
                     <span class="kpi-icon icon-amber">⏱️</span>
+
                 </div>
+
                 <div class="kpi-value-row">
+
                     <span class="kpi-value text-amber" id="kpi-warning-count">0</span>
+
                     <span class="kpi-subtext">Courses (75% - 80%)</span>
+
                 </div>
+
                 <p class="kpi-desc">Requires sustained attendance buffer.</p>
+
             </div>
 
+
+
             <div class="kpi-card">
+
                 <div class="kpi-header">
+
                     <span class="kpi-title">Safe Buffer Courses</span>
+
                     <span class="kpi-icon icon-green">✅</span>
+
                 </div>
+
                 <div class="kpi-value-row">
+
                     <span class="kpi-value text-green" id="kpi-safe-count">0</span>
+
                     <span class="kpi-subtext">Courses &ge; 80%</span>
+
                 </div>
+
                 <p class="kpi-desc">Discretionary safe skips permitted.</p>
+
             </div>
+
         </section>
 
+
+
         <!-- Direct Live Attendance Marking & Course Table -->
+
         <section class="content-card attendance-panel">
             <!-- Premium Gradient Accent Header -->
             <div class="att-panel-header">
@@ -204,21 +342,21 @@
                 </div>
             </div>
 
+            <!-- Live Editable Table -->
             <div class="table-responsive">
-                <table class="academic-table">
+                <table class="courses-table">
                     <thead>
                         <tr>
-                            <th><span class="th-inner">📋 Code & Acronym</span></th>
+                            <th><span class="th-inner">📋 Code &amp; Acronym</span></th>
                             <th><span class="th-inner">📖 Course Name</span></th>
-                            <th><span class="th-inner">⏱ Hrs/Wk</span></th>
                             <th><span class="th-inner">📊 Conducted</span></th>
                             <th><span class="th-inner">✅ Attended</span></th>
-                            <th><span class="th-inner">❌ Bunked</span></th>
+                            <th><span class="th-inner">🚫 Absent</span></th>
                             <th><span class="th-inner">🏥 OD / Medical</span></th>
                             <th><span class="th-inner">📈 Current %</span></th>
-                            <th><span class="th-inner">🔰 Status</span></th>
+                            <th><span class="th-inner">🏷️ Status</span></th>
                             <th><span class="th-inner">💡 Buffer / Deficit</span></th>
-                            <th><span class="th-inner">⚙ Actions</span></th>
+                            <th><span class="th-inner">⚙️ Actions</span></th>
                         </tr>
                     </thead>
                     <tbody id="courses-table-body">
@@ -234,7 +372,7 @@
                 <div>
                     <div class="badge-section">LIVE AI WORKFLOW VISUALIZER</div>
                     <h2>A* Search Algorithm Execution Graph &amp; Workflow Pipeline</h2>
-                    <p class="card-subtitle">Watch in real time how A* traverses through decision states $S_0 \to S_k$, evaluates effort cost $g(n)$ and heuristic distance $h(n)$, and prunes suboptimal branches to deliver the optimal recovery plan.</p>
+                    <p class="card-subtitle">Watch in real time how A* traverses through decision states S&#8320; &rarr; S&#7522;, evaluates effort cost g(n) and heuristic distance h(n), and prunes suboptimal branches to deliver the optimal recovery plan.</p>
                 </div>
                 <div class="workflow-controls">
                     <select id="algo-select" class="dropdown-styled" style="margin-right: 8px;">
@@ -243,16 +381,16 @@
                         <option value="ucs">Uniform Cost Search (Exhaustive)</option>
                     </select>
                     <button class="btn btn-primary btn-sm" id="btn-play-sim">
-                        ▶ Run Live Simulation
+                        &#9654; Run Live Simulation
                     </button>
                     <button class="btn btn-secondary btn-sm" id="btn-step-sim">
-                        ⏭ Step Forward
+                        &#9197; Step Forward
                     </button>
                     <button class="btn btn-outline btn-sm" id="btn-instant-sim">
-                        ⚡ Instant Path
+                        &#9889; Instant Path
                     </button>
                     <button class="btn btn-secondary btn-sm" id="btn-reset-sim">
-                        🔄 Reset
+                        &#128257; Reset
                     </button>
                 </div>
             </div>
@@ -261,7 +399,7 @@
             <div class="algo-hud-strip">
                 <div class="hud-item">
                     <span class="hud-lbl">Current State:</span>
-                    <strong class="hud-val text-blue" id="hud-current-node">Initial State S₀</strong>
+                    <strong class="hud-val text-blue" id="hud-current-node">Initial State S&#8320;</strong>
                 </div>
                 <div class="hud-item">
                     <span class="hud-lbl">Effort Cost g(n):</span>
@@ -291,7 +429,7 @@
             <!-- Live Search Decision Trace Log -->
             <div class="decision-terminal-box">
                 <div class="terminal-header">
-                    <span>⚡ A* Search Execution Trace &amp; Advisory Logic</span>
+                    <span>&#9889; A* Search Execution Trace &amp; Advisory Logic</span>
                     <span class="terminal-badge" id="terminal-status-badge">Awaiting Execution</span>
                 </div>
                 <div class="terminal-log-content" id="terminal-log-list">
@@ -300,46 +438,85 @@
             </div>
         </section>
 
-        <!-- Final A* Recovery Advisory Plan -->
         <section class="content-card astar-advisor-card">
+
             <div class="card-header">
+
                 <div>
+
                     <div class="badge-section">OPTIMAL ADVISORY OUTPUT</div>
+
                     <h2>A* Recommended Action Plan for Target &ge; 75%</h2>
+
                     <p class="card-subtitle">Minimal-strain schedule computed by A* search balancing all 7 subjects across the remaining semester.</p>
+
                 </div>
+
                 <div class="solver-actions">
+
                     <button class="btn btn-primary btn-sm" id="btn-recompute-plan">
+
                         ⚡ Recalculate
+
                     </button>
+
                 </div>
+
             </div>
+
+
 
             <!-- Recovery Plan Summary Strip -->
+
             <div class="plan-stats-strip">
+
                 <div class="p-stat-item">
+
                     <span class="p-label">Search Feasibility:</span>
+
                     <strong class="p-val text-green" id="plan-feasibility">Guaranteed Eligible</strong>
+
                 </div>
+
                 <div class="p-stat-item">
+
                     <span class="p-label">Nodes Expanded:</span>
+
                     <strong class="p-val" id="plan-nodes">--</strong>
+
                 </div>
+
                 <div class="p-stat-item">
+
                     <span class="p-label">Search Latency:</span>
+
                     <strong class="p-val" id="plan-latency">-- ms</strong>
+
                 </div>
+
                 <div class="p-stat-item">
+
                     <span class="p-label">Total Strain Cost $g$:</span>
+
                     <strong class="p-val" id="plan-cost">--</strong>
+
                 </div>
+
             </div>
 
+
+
             <!-- Step-by-step Advisory Recommendations -->
+
             <div class="advisory-recommendation-box" id="advisory-steps-container">
+
                 <!-- Injected Recommendations -->
+
             </div>
+
         </section>
+
+
 
         <!-- Simulator & Search Analytics Grid -->
         <section class="two-col-grid">
@@ -369,43 +546,253 @@
                 </div>
             </div>
         </section>
+
+        <!-- EXTENSION 1: CSP TIMETABLE LEAVE PLANNER & CONSTRAINT PROPAGATION ENGINE -->
+        <section class="content-card csp-panel-card" style="border-top: 3px solid #8b5cf6;">
+            <div class="card-header">
+                <div>
+                    <div class="badge-section" style="color:#8b5cf6;">CSP CONSTRAINT PROPAGATION LAYER</div>
+                    <h2>Timetable Leave Planner (Constraint Satisfaction Problem)</h2>
+                    <p class="card-subtitle">Models every future timetable slot as a Boolean variable with constraints: (1) All courses maintain &ge; 75%, (2) Labs strictly mandatory, (3) Max <em>k</em> consecutive absences.</p>
+                </div>
+                <div class="csp-controls" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <label style="font-size:0.82rem; font-weight:600;">Window:</label>
+                        <select id="csp-weeks-select" class="form-select-sm" style="padding:4px 8px; border-radius:6px;">
+                            <option value="1" selected>1 Week (40 Slots)</option>
+                            <option value="2">2 Weeks (80 Slots)</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <label style="font-size:0.82rem; font-weight:600;">Max Consecutive Skips (k):</label>
+                        <select id="csp-max-skips-select" class="form-select-sm" style="padding:4px 8px; border-radius:6px;">
+                            <option value="1">k = 1</option>
+                            <option value="2" selected>k = 2</option>
+                            <option value="3">k = 3</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-sm" id="btn-run-csp" style="background:#8b5cf6; border-color:#7c3aed;">
+                        ⚡ Solve Feasible Leaves (CSP)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Effort Comparison Strip (With vs Without Propagation) -->
+            <div class="csp-comparison-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:20px;">
+                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:16px;">
+                    <div style="font-size:0.78rem; font-weight:700; color:#dc2626; text-transform:uppercase;">Without Propagation (Standard BT)</div>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                        <span>Nodes Visited: <strong id="csp-bt-nodes">--</strong></span>
+                        <span>Backtracks: <strong id="csp-bt-backtracks" style="color:#dc2626;">--</strong></span>
+                    </div>
+                    <div style="font-size:0.8rem; color:#6b7280; margin-top:6px;">Checks: <span id="csp-bt-checks">--</span> | Latency: <span id="csp-bt-time">-- ms</span></div>
+                </div>
+
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:16px;">
+                    <div style="font-size:0.78rem; font-weight:700; color:#16a34a; text-transform:uppercase;">With Constraint Propagation (Forward Checking / AC-3)</div>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                        <span>Nodes Visited: <strong id="csp-fc-nodes">--</strong></span>
+                        <span>Backtracks: <strong id="csp-fc-backtracks" style="color:#16a34a;">--</strong></span>
+                    </div>
+                    <div style="font-size:0.8rem; color:#6b7280; margin-top:6px;">Checks: <span id="csp-fc-checks">--</span> | Latency: <span id="csp-fc-time">-- ms</span></div>
+                </div>
+
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:16px;">
+                    <div style="font-size:0.78rem; font-weight:700; color:#2563eb; text-transform:uppercase;">Search Space Pruning Gain</div>
+                    <div style="font-size:1.4rem; font-weight:800; color:#2563eb; margin-top:4px;" id="csp-gain-pct">--%</div>
+                    <div style="font-size:0.8rem; color:#4b5563; margin-top:4px;" id="csp-gain-desc">Dead-end branches proactively pruned.</div>
+                </div>
+            </div>
+
+            <!-- Feasible Leave Plans Output -->
+            <div id="csp-solutions-container">
+                <div style="text-align:center; padding:20px; color:var(--text-muted);">Click <strong>Solve Feasible Leaves (CSP)</strong> to compute safe leave plans and view constraint propagation metrics.</div>
+            </div>
+        </section>
+
+        <!-- EXTENSION 2: KNOWLEDGE & POLICY REASONER (FIRST-ORDER LOGIC & BACKWARD-CHAINING) -->
+        <section class="content-card fol-panel-card" style="border-top: 3px solid #059669;">
+            <div class="card-header">
+                <div>
+                    <div class="badge-section" style="color:#059669;">KNOWLEDGE &amp; REASONING LAYER (FOL)</div>
+                    <h2>Policy-Aware Exam Eligibility Reasoner &amp; Backward-Chaining Engine</h2>
+                    <p class="card-subtitle">Encodes university regulations as First-Order Horn Clauses (On-Duty &rArr; Present, 65-75% Medical Condonation, 80% Lab Minimum) and proves eligibility with an automated proof trace.</p>
+                </div>
+                <div class="fol-controls" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <label style="font-size:0.82rem; font-weight:600;">Target Course:</label>
+                        <select id="fol-subject-select" class="form-select-sm" style="padding:4px 8px; border-radius:6px;">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; cursor:pointer;">
+                        <input type="checkbox" id="fol-med-checkbox"> Medical Certificate Submitted
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; cursor:pointer;">
+                        <input type="checkbox" id="fol-dean-checkbox" checked> Dean Condonation Approval
+                    </label>
+                    <button class="btn btn-primary btn-sm" id="btn-run-fol" style="background:#059669; border-color:#047857;">
+                        🔍 Verify Exam Eligibility &amp; Trace
+                    </button>
+                </div>
+            </div>
+
+            <!-- Proof Verdict Banner -->
+            <div id="fol-verdict-box" style="margin-bottom:16px; display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 18px;">
+                    <div>
+                        <span id="fol-verdict-badge" style="display:inline-block; font-weight:800; font-size:0.85rem; padding:4px 10px; border-radius:20px; background:#10b981; color:#fff; margin-bottom:4px;">ELIGIBLE</span>
+                        <div id="fol-verdict-text" style="font-size:0.88rem; color:#1f2937; font-weight:600;"></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:0.75rem; color:#6b7280; text-transform:uppercase;">Inference Query</span>
+                        <div style="font-family:'JetBrains Mono', monospace; font-size:0.85rem; font-weight:700; color:#059669;" id="fol-query-display">EligibleForExam(X)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backward-Chaining Proof Trace Console -->
+            <div class="decision-terminal-box" style="background:#0b1329; border:1px solid #1e293b;">
+                <div class="terminal-header" style="background:#111c38; color:#34d399;">
+                    <span>📜 Backward-Chaining Automated Proof Trace Tree</span>
+                    <span class="terminal-badge" id="fol-trace-badge" style="background:#064e3b; color:#34d399;">Ready</span>
+                </div>
+                <div class="terminal-log-content" id="fol-proof-log" style="max-height:260px; font-family:'JetBrains Mono', monospace; font-size:0.82rem; color:#e2e8f0;">
+                    <div style="color:#64748b; padding:8px;">Select a course above and click 'Verify Exam Eligibility &amp; Trace' to view the First-Order Logic proof tree.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- EXTENSION 3: APPLIED & RESPONSIBLE AI LAYER -->
+        <section class="content-card responsible-ai-card" style="border-top: 3px solid #f59e0b;">
+            <div class="card-header">
+                <div>
+                    <div class="badge-section" style="color:#d97706;">APPLIED &amp; RESPONSIBLE AI GOVERNANCE</div>
+                    <h2>Pattern-Based Absence Risk Matrix &amp; Explainable AI (XAI)</h2>
+                    <p class="card-subtitle">Analyzes past weekday absence trends, evaluates dynamic risk for all 7 courses, and provides natural-language transparent explanations with privacy-preserving anonymization.</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:0.8rem; color:#6b7280;">Privacy Token:</span>
+                    <span id="rai-anonymized-id" style="font-family:'JetBrains Mono', monospace; font-size:0.82rem; font-weight:700; background:#f3f4f6; padding:3px 8px; border-radius:4px; border:1px solid #d1d5db;">STU_ANON</span>
+                </div>
+            </div>
+
+            <!-- Peak Absence Pattern Banner -->
+            <div id="rai-pattern-banner" style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 18px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:1.3rem;">📊</span>
+                    <div>
+                        <strong style="color:#92400e; font-size:0.9rem;" id="rai-pattern-title">Weekday Absence Distribution Analysis</strong>
+                        <div style="font-size:0.82rem; color:#b45309;" id="rai-pattern-desc">Calculating historical distribution...</div>
+                    </div>
+                </div>
+                <div id="rai-weekday-pills" style="display:flex; gap:6px;">
+                    <!-- Injected weekday breakdown pills -->
+                </div>
+            </div>
+
+            <!-- 7-Subject Comprehensive Risk Table -->
+            <div class="table-responsive">
+                <table class="academic-table" id="rai-risk-table">
+                    <thead>
+                        <tr>
+                            <th>Course</th>
+                            <th>Current %</th>
+                            <th>Risk Tier</th>
+                            <th>Safe Skips</th>
+                            <th>Recovery Needed</th>
+                            <th>Explainable AI (XAI) Recommendation &amp; Justification</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rai-risk-table-body">
+                        <!-- Populated dynamically with all 7 subjects -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Responsible AI Governance Note -->
+            <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; display:flex; align-items:flex-start; gap:10px;">
+                <span style="font-size:1.1rem; color:#2563eb;">🛡️</span>
+                <div style="font-size:0.78rem; color:#64748b; line-height:1.4;">
+                    <strong>Responsible AI &amp; Ethical Governance:</strong> This system is strictly an academic decision-support and emergency planning instrument designed to help students maintain statutory eligibility and recover from legitimate medical/on-duty disruptions. It is NOT intended to encourage, optimize, or automate habitual absenteeism. All student records are processed under privacy-preserving pseudonymization.
+                </div>
+            </div>
+        </section>
+
     </main>
 
+
+
     <!-- Modal: Register / Edit Student -->
+
     <div class="modal-backdrop" id="student-modal">
+
         <div class="modal-box">
+
             <div class="modal-header">
+
                 <h3 id="student-modal-title">Student Profile Details</h3>
+
                 <button class="modal-close" id="btn-close-student-modal">&times;</button>
+
             </div>
+
             <form id="student-form" class="modal-body">
+
                 <div class="form-group">
+
                     <label>Full Student Name:</label>
+
                     <input type="text" id="inp-student-name" required placeholder="e.g. Aswin">
+
                 </div>
+
                 <div class="form-row">
+
                     <div class="form-group">
+
                         <label>Student ID:</label>
+
                         <input type="text" id="inp-student-id" required placeholder="e.g. VH15227">
+
                     </div>
+
                     <div class="form-group">
+
                         <label>Register Number:</label>
+
                         <input type="number" id="inp-student-reg" required placeholder="e.g. 113025148009">
+
                     </div>
+
                 </div>
+
                 <div class="form-group">
+
                     <label>Current Semester Week (1 - 15):</label>
+
                     <input type="number" id="inp-student-week" min="1" max="15" value="9" required>
+
                 </div>
+
                 <div class="modal-footer">
+
                     <button type="button" class="btn btn-secondary" id="btn-cancel-student-modal">Cancel</button>
+
                     <button type="submit" class="btn btn-primary" id="btn-save-student-text">Save Details</button>
+
                 </div>
+
             </form>
+
         </div>
+
     </div>
 
+
+
     <!-- Modal: Add / Edit Course -->
+
     <div class="modal-backdrop" id="subject-modal">
         <div class="modal-box">
             <div class="modal-header">
@@ -443,16 +830,22 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Classes Attended (Present):</label>
-                        <input type="number" id="inp-course-attended" min="0" value="28" required>
+                        <label>Classes Conducted (Held by Teacher):</label>
+                        <input type="number" id="inp-course-conducted" min="0" value="36" required oninput="recalcModal('conducted')">
                     </div>
                     <div class="form-group">
-                        <label>Classes Bunked (Absent):</label>
-                        <input type="number" id="inp-course-bunked" min="0" value="7">
+                        <label>Classes Attended (Present):</label>
+                        <input type="number" id="inp-course-attended" min="0" value="30" required oninput="recalcModal('attended')">
+                    </div>
+                    <div class="form-group">
+                        <label>🚫 Classes Absent:</label>
+                        <input type="number" id="inp-course-bunked" min="0" value="6" oninput="recalcModal('absent')" style="border-color:rgba(239,68,68,0.5);color:#f87171;"
+                               title="Edit Absent directly. Present will auto-adjust.">
+                        <small style="color:var(--text-muted);font-size:0.75rem;margin-top:2px;display:block">Editing this auto-adjusts Present</small>
                     </div>
                     <div class="form-group">
                         <label>Approved OD / Medical:</label>
-                        <input type="number" id="inp-course-od" min="0" value="1">
+                        <input type="number" id="inp-course-od" min="0" value="0" oninput="recalcModal('od')">
                     </div>
                 </div>
                 <div class="modal-footer">
