@@ -27,6 +27,9 @@ from src.data_store import (
 from src.risk_analyzer import AttendanceRiskAnalyzer
 from src.astar_planner import AStarAttendancePlanner
 from src.baseline_search import GreedyBestFirstPlanner, UniformCostPlanner
+from src.csp_planner import CSPLeavePlanner
+from src.policy_reasoner import PolicyReasoner
+from src.responsible_ai import ResponsibleAIAdvisor
 from src.config import (
     REGISTER_NUMBER,
     STUDENT_ID,
@@ -157,6 +160,48 @@ class AdvisorDashboardHandler(SimpleHTTPRequestHandler):
                 "projected_percentages": result.projected_percentages,
                 "advisory_notes": result.advisory_notes
             })
+
+        # 5. GET /api/students/<student_id>/csp - CSP Timetable Leave Planner with Propagation Comparison
+        elif len(path_parts) == 4 and path_parts[0] == "api" and path_parts[1] == "students" and path_parts[3] == "csp":
+            s_id = path_parts[2]
+            profile = get_single_student_profile(s_id)
+            if not profile:
+                return self._send_json({"error": "Student not found"}, 404)
+
+            qs = parse_qs(parsed.query)
+            weeks = int(qs.get("weeks", [1])[0])
+            max_skips = int(qs.get("max_consecutive", [2])[0])
+
+            planner = CSPLeavePlanner(profile, planning_weeks=weeks, max_consecutive_skips=max_skips)
+            comparison = planner.solve_comparison(max_solutions=5)
+            return self._send_json(comparison)
+
+        # 6. GET /api/students/<student_id>/eligibility - FOL Backward-Chaining Policy Reasoner
+        elif len(path_parts) == 4 and path_parts[0] == "api" and path_parts[1] == "students" and path_parts[3] == "eligibility":
+            s_id = path_parts[2]
+            profile = get_single_student_profile(s_id)
+            if not profile:
+                return self._send_json({"error": "Student not found"}, 404)
+
+            qs = parse_qs(parsed.query)
+            default_subj = list(profile.subject_states.keys())[0] if profile.subject_states else "25MA05IT"
+            subj_code = qs.get("subject", [default_subj])[0]
+            has_med = qs.get("has_medical", ["false"])[0].lower() in ["true", "1", "yes"]
+            is_approved = qs.get("dean_approved", ["true"])[0].lower() in ["true", "1", "yes"]
+
+            reasoner = PolicyReasoner()
+            verification = reasoner.verify_eligibility(profile, subj_code, has_med, is_approved)
+            return self._send_json(verification)
+
+        # 7. GET /api/students/<student_id>/risk-analysis - Applied & Responsible AI Pattern Analysis
+        elif len(path_parts) == 4 and path_parts[0] == "api" and path_parts[1] == "students" and path_parts[3] == "risk-analysis":
+            s_id = path_parts[2]
+            profile = get_single_student_profile(s_id)
+            if not profile:
+                return self._send_json({"error": "Student not found"}, 404)
+
+            risk_report = ResponsibleAIAdvisor.generate_comprehensive_risk_table(profile)
+            return self._send_json(risk_report)
 
         return super().do_GET()
 
