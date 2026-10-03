@@ -15,6 +15,7 @@ def get_default_subjects() -> List[Subject]:
         Subject(
             code=s["code"],
             name=s["name"],
+            acronym=s.get("acronym", s["code"]),
             credits=s["credits"],
             difficulty=s["difficulty"],
             classes_per_week=s["hours_per_week"],
