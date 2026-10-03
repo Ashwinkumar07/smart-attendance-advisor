@@ -277,13 +277,28 @@ body.app-theme {
 }
 
 /* Color variations for stepper buttons on hover based on type */
+.stepper-conducted .stepper-btn:hover { color: #475569; border-color: #475569; }
 .stepper-attend .stepper-btn:hover { color: var(--green-btn); border-color: var(--green-btn); }
 .stepper-bunk .stepper-btn:hover { color: var(--red-btn); border-color: var(--red-btn); }
 .stepper-od .stepper-btn:hover { color: var(--primary-blue); border-color: var(--primary-blue); }
 
+.stepper-conducted .stepper-input { color: var(--text-primary); font-weight: 800; }
 .stepper-attend .stepper-input { color: var(--green-btn); }
 .stepper-bunk .stepper-input { color: var(--red-btn); }
 .stepper-od .stepper-input { color: var(--primary-blue); }
+
+.bunk-display-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--red-btn);
+}
 
 .action-btn-group {
     display: flex;
