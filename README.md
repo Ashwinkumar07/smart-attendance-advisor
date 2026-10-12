@@ -209,4 +209,4 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ---
 
 > **Author**: Aswin · Reg No: `113025148009` · Student ID: `VH15227`  
-> Department of CSE (AI & ML), Vel High Tech Engineering College Chennai · Semester III (2026–2027)
+> Department of CSE (AI & ML), VIT Chennai · Semester III (2026–2027)
