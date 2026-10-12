@@ -174,10 +174,16 @@ async function loadStudentProfile(studentId) {
 // 3. DASHBOARD
 // ================================================================
 function renderDashboard(data) {
-    document.getElementById("profile-name").textContent = data.name;
-    document.getElementById("profile-avatar").textContent = (data.name || "ST").substring(0, 2).toUpperCase();
-    document.getElementById("meta-student-id").textContent = data.student_id;
-    document.getElementById("meta-reg-no").textContent = data.register_no;
+    if (!data) return;
+    const setTxt = (id, val) => {
+        const node = document.getElementById(id);
+        if (node) node.textContent = val;
+    };
+    setTxt("profile-name", data.name || "Student");
+    setTxt("profile-avatar", (data.name || "ST").substring(0, 2).toUpperCase());
+    setTxt("meta-student-id", data.student_id || "");
+    setTxt("meta-reg-no", data.register_no || "");
+
     recalcKPIs(data);
     renderCoursesTable(data);
     renderSimulator(data);
@@ -224,19 +230,27 @@ function recalcKPIs(data) {
     data.overall_attended   = totA;
     data.overall_risk_tier  = oPct < 75 ? "Critical" : oPct < 80 ? "Warning" : "Safe";
 
-    document.getElementById("kpi-overall-pct").textContent   = `${oPct}%`;
-    document.getElementById("kpi-stat-ratio").textContent    = `${totA} / ${totC} Hours`;
-    document.getElementById("kpi-critical-count").textContent = crit;
-    document.getElementById("kpi-warning-count").textContent  = warn;
-    document.getElementById("kpi-safe-count").textContent     = safe;
+    const setTxt = (id, val) => {
+        const node = document.getElementById(id);
+        if (node) node.textContent = val;
+    };
+    setTxt("kpi-overall-pct", `${oPct}%`);
+    setTxt("kpi-stat-ratio", `${totA} / ${totC} Hours`);
+    setTxt("kpi-critical-count", crit);
+    setTxt("kpi-warning-count", warn);
+    setTxt("kpi-safe-count", safe);
 
     const fill = document.getElementById("kpi-progress-bar");
-    fill.style.width = `${Math.min(oPct, 100)}%`;
-    fill.style.backgroundColor = oPct < 75 ? "var(--red-critical)" : oPct < 80 ? "var(--amber-warn)" : "var(--green-safe)";
+    if (fill) {
+        fill.style.width = `${Math.min(oPct, 100)}%`;
+        fill.style.backgroundColor = oPct < 75 ? "var(--red-critical)" : oPct < 80 ? "var(--amber-warn)" : "var(--green-safe)";
+    }
 
     const critDesc = document.getElementById("kpi-critical-desc");
-    critDesc.textContent = crit > 0 ? `${crit} course(s) require immediate recovery.` : "No courses currently in detention risk.";
-    critDesc.style.color = crit > 0 ? "var(--red-critical)" : "var(--text-muted)";
+    if (critDesc) {
+        critDesc.textContent = crit > 0 ? `${crit} course(s) require immediate recovery.` : "No courses currently in detention risk.";
+        critDesc.style.color = crit > 0 ? "var(--red-critical)" : "var(--text-muted)";
+    }
 
     const badge = document.getElementById("profile-status-badge");
     if (badge) {
