@@ -194,22 +194,17 @@ function renderDashboard(data) {
 function recalcKPIs(data) {
     let totC = 0, totA = 0, crit = 0, warn = 0, safe = 0;
     data.subject_breakdown.forEach(s => {
-        const cond = Math.max(0, parseInt(s.conducted) || 0);
-        s.conducted = cond;
-        
         let att  = Math.max(0, parseInt(s.attended) || 0);
         let od   = Math.max(0, parseInt(s.od_leaves) || 0);
-        
-        // Ensure present + OD <= conducted
-        if (att + od > cond) {
-            att = Math.max(0, cond - od);
-        }
+        let bunk = Math.max(0, parseInt(s.bunked) || 0);
+
         s.attended = att;
         s.od_leaves = od;
-        
-        // Bunked (Absent) is strictly the remaining classes conducted
-        const bunk = Math.max(0, cond - att - od);
         s.bunked = bunk;
+
+        // Classes held section updates dynamically: conducted = Present + Absent + OD
+        const cond = att + bunk + od;
+        s.conducted = cond;
 
         const eff = att + od;
         s.effective_attended = eff;
@@ -383,48 +378,32 @@ function renderCoursesTable(data) {
 }
 
 // ================================================================
-// 4. LIVE STEPPER ACTIONS (Conducted STABLE & Present/Absent/OD Bounded)
+// 4. LIVE STEPPER ACTIONS (Dynamic Classes Held = Present + Absent + OD)
 // ================================================================
 window.modifyCount = async (code, field, delta) => {
     if (!currentStudentData) return;
     const s = currentStudentData.subject_breakdown.find(x => x.code === code);
     if (!s) return;
 
-    let cond = Math.max(0, parseInt(s.conducted) || 0);
     let att  = Math.max(0, parseInt(s.attended) || 0);
     let od   = Math.max(0, parseInt(s.od_leaves) || 0);
     let bunk = Math.max(0, parseInt(s.bunked) || 0);
 
-    if (field === 'conducted') {
-        cond = Math.max(0, cond + delta);
-        s.conducted = cond;
-        if (att + od > cond) {
-            att = Math.max(0, cond - od);
-            s.attended = att;
-        }
-        s.bunked = Math.max(0, cond - att - od);
-    } else if (field === 'attended') {
+    if (field === 'attended') {
         att = Math.max(0, att + delta);
-        if (att + od > cond) {
-            att = Math.max(0, cond - od);
-        }
         s.attended = att;
-        s.bunked = Math.max(0, cond - att - od);
-    } else if (field === 'od_leaves') {
-        od = Math.max(0, od + delta);
-        if (att + od > cond) {
-            od = Math.max(0, cond - att);
-        }
-        s.od_leaves = od;
-        s.bunked = Math.max(0, cond - att - od);
     } else if (field === 'bunked') {
         bunk = Math.max(0, bunk + delta);
-        if (bunk > cond - od) {
-            bunk = Math.max(0, cond - od);
-        }
         s.bunked = bunk;
-        s.attended = Math.max(0, cond - bunk - od);
+    } else if (field === 'od_leaves') {
+        od = Math.max(0, od + delta);
+        s.od_leaves = od;
     }
+
+    // Classes held section updates dynamically:
+    s.conducted = s.attended + s.bunked + s.od_leaves;
+    s.effective_attended = s.attended + s.od_leaves;
+    s.percentage = s.conducted > 0 ? +((s.effective_attended / s.conducted) * 100).toFixed(1) : 100.0;
 
     recalcKPIs(currentStudentData);
     renderCoursesTable(currentStudentData);
@@ -439,26 +418,19 @@ window.setCount = async (code, field, val) => {
     if (!s) return;
 
     const numVal = Math.max(0, parseInt(val) || 0);
-    let cond = Math.max(0, parseInt(s.conducted) || 0);
-    let att  = Math.max(0, parseInt(s.attended) || 0);
-    let od   = Math.max(0, parseInt(s.od_leaves) || 0);
 
-    if (field === 'conducted') {
-        s.conducted = numVal;
-        if (att + od > s.conducted) {
-            s.attended = Math.max(0, s.conducted - od);
-        }
-        s.bunked = Math.max(0, s.conducted - s.attended - od);
-    } else if (field === 'attended') {
-        s.attended = Math.min(numVal, cond - od);
-        s.bunked = Math.max(0, cond - s.attended - od);
-    } else if (field === 'od_leaves') {
-        s.od_leaves = Math.min(numVal, cond - att);
-        s.bunked = Math.max(0, cond - att - s.od_leaves);
+    if (field === 'attended') {
+        s.attended = numVal;
     } else if (field === 'bunked') {
-        s.bunked = Math.min(numVal, cond - od);
-        s.attended = Math.max(0, cond - s.bunked - od);
+        s.bunked = numVal;
+    } else if (field === 'od_leaves') {
+        s.od_leaves = numVal;
     }
+
+    // Classes held section updates dynamically:
+    s.conducted = s.attended + s.bunked + s.od_leaves;
+    s.effective_attended = s.attended + s.od_leaves;
+    s.percentage = s.conducted > 0 ? +((s.effective_attended / s.conducted) * 100).toFixed(1) : 100.0;
 
     recalcKPIs(currentStudentData);
     renderCoursesTable(currentStudentData);
