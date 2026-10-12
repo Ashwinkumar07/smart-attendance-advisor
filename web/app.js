@@ -27,7 +27,76 @@ const OFFICIAL_SUBJECTS = [
 // ================================================================
 // 1. INIT
 // ================================================================
+const PANE_TITLES = {
+    "pane-dashboard": "Workspace Control Hub",
+    "pane-attendance": "Real-Time Attendance Control Center",
+    "pane-visualizer": "Live A* Heuristic Algorithm Visualizer",
+    "pane-csp": "CSP Timetable & Attendance-Constrained Leave Planner",
+    "pane-fol": "First-Order Logic (FOL) Statutory Policy Reasoner",
+    "pane-responsible-ai": "Responsible AI Governance & Deficit Pattern Risk Matrix",
+    "pane-simulator": "Interactive What-If Scenario Simulator",
+    "pane-benchmark": "Heuristic Search Performance Benchmarking"
+};
+
+window.switchPane = function(paneId) {
+    const panes = document.querySelectorAll(".content-pane");
+    const navItems = document.querySelectorAll(".sidebar-nav .nav-item");
+
+    panes.forEach(p => {
+        if (p.id === paneId) {
+            p.classList.add("active");
+        } else {
+            p.classList.remove("active");
+        }
+    });
+
+    navItems.forEach(item => {
+        const itemPane = item.getAttribute("data-pane");
+        if (itemPane === paneId) {
+            item.classList.add("active");
+            if (!item.querySelector(".active-dot")) {
+                const dot = document.createElement("span");
+                dot.className = "active-dot";
+                item.appendChild(dot);
+            }
+        } else {
+            item.classList.remove("active");
+            const dot = item.querySelector(".active-dot");
+            if (dot) dot.remove();
+        }
+    });
+
+    const titleEl = document.getElementById("page-current-title");
+    if (titleEl && PANE_TITLES[paneId]) {
+        titleEl.textContent = PANE_TITLES[paneId];
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+function setupSidebarNav() {
+    const navItems = document.querySelectorAll(".sidebar-nav .nav-item");
+    navItems.forEach(item => {
+        item.addEventListener("click", () => {
+            const paneId = item.getAttribute("data-pane");
+            if (paneId) {
+                switchPane(paneId);
+            }
+        });
+    });
+
+    try {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+        const dateEl = document.getElementById("topbar-date-text");
+        if (dateEl) dateEl.textContent = dateStr;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+    setupSidebarNav();
     setupModuleTabs();
     setupModalListeners();
     setupActionButtons();
@@ -170,17 +239,47 @@ function recalcKPIs(data) {
     critDesc.style.color = crit > 0 ? "var(--red-critical)" : "var(--text-muted)";
 
     const badge = document.getElementById("profile-status-badge");
-    badge.textContent = data.overall_risk_tier;
-    badge.className   = `status-badge ${data.overall_risk_tier}`;
+    if (badge) {
+        badge.textContent = crit === 0 ? "System Online" : `${crit} Critical Alerts`;
+        if (badge.parentElement && badge.parentElement.classList.contains("topbar-status-badge")) {
+            badge.parentElement.style.background = crit === 0 ? "#ecfdf5" : "#fef2f2";
+            badge.parentElement.style.color = crit === 0 ? "#059669" : "#dc2626";
+            badge.parentElement.style.borderColor = crit === 0 ? "#a7f3d0" : "#fecaca";
+        }
+    }
+
+    // Sync Hero & Highlight Quad Cards on Dashboard Hub
+    const el = (id) => document.getElementById(id);
+    const heroCourses = el("hero-stat-courses");
+    if (heroCourses) heroCourses.textContent = `${data.subject_breakdown.length} Courses`;
+
+    const dashAtt = el("dash-attendance-pct");
+    if (dashAtt) {
+        dashAtt.textContent = `${oPct}%`;
+        dashAtt.style.color = oPct < 75 ? "var(--red-critical)" : oPct < 80 ? "var(--amber-warn)" : "var(--green-safe)";
+    }
+    const dashMod = el("dash-active-modules");
+    if (dashMod) dashMod.textContent = `${data.subject_breakdown.length} Active`;
+
+    const dashStat = el("dash-statutory-status");
+    if (dashStat) {
+        dashStat.textContent = crit === 0 ? "Statutory Safe" : `${crit} at Risk`;
+        dashStat.style.color = crit === 0 ? "var(--green-safe)" : "var(--red-critical)";
+    }
+
+    const algoNames = { astar: "A* Search", greedy: "Greedy BFS", ucs: "Uniform Cost" };
+    const curAlgo = (typeof getSelectedAlgo === "function" ? getSelectedAlgo() : "astar");
+    const dashAlgo = el("dash-active-engine");
+    if (dashAlgo) {
+        dashAlgo.textContent = algoNames[curAlgo] || "A* Search";
+    }
 
     // Sync attendance panel mini-stats strip
-    const el = (id) => document.getElementById(id);
     if (el("att-stat-courses")) el("att-stat-courses").textContent = data.subject_breakdown.length;
     if (el("att-stat-safe"))    el("att-stat-safe").textContent = safe;
     if (el("att-stat-warn"))    el("att-stat-warn").textContent = warn;
     if (el("att-stat-crit"))    el("att-stat-crit").textContent = crit;
-    const algoNames = { astar: "A* Search", greedy: "Greedy BFS", ucs: "Uniform Cost" };
-    if (el("att-stat-algo"))    el("att-stat-algo").textContent = algoNames[getSelectedAlgo()] || "A* Search";
+    if (el("att-stat-algo"))    el("att-stat-algo").textContent = algoNames[curAlgo] || "A* Search";
 }
 
 function renderCoursesTable(data) {
