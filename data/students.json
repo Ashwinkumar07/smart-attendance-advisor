@@ -17,10 +17,10 @@
         "hours_per_week": 5,
         "difficulty": 0.75,
         "faculty": "Faculty",
-        "conducted": 40,
-        "attended": 33,
-        "bunked": 3,
-        "od_leaves": 4
+        "conducted": 41,
+        "attended": 32,
+        "bunked": 8,
+        "od_leaves": 1
       },
       "25ML35T": {
         "code": "25ML35T",
@@ -29,7 +29,7 @@
         "credits": 3,
         "hours_per_week": 4,
         "difficulty": 0.75,
-        "faculty": "",
+        "faculty": "Faculty",
         "conducted": 40,
         "attended": 25,
         "bunked": 14,
@@ -81,11 +81,11 @@
         "credits": 2,
         "hours_per_week": 4,
         "difficulty": 0.75,
-        "faculty": "",
+        "faculty": "Faculty",
         "conducted": 40,
         "attended": 25,
-        "bunked": 14,
-        "od_leaves": 1
+        "bunked": 7,
+        "od_leaves": 8
       },
       "25HML38P": {
         "code": "25HML38P",
@@ -94,11 +94,11 @@
         "credits": 2,
         "hours_per_week": 4,
         "difficulty": 0.75,
-        "faculty": "",
+        "faculty": "Faculty",
         "conducted": 40,
         "attended": 25,
-        "bunked": 14,
-        "od_leaves": 1
+        "bunked": 9,
+        "od_leaves": 6
       }
     }
   },
