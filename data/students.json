@@ -31,8 +31,8 @@
         "difficulty": 0.75,
         "faculty": "Faculty",
         "conducted": 40,
-        "attended": 25,
-        "bunked": 14,
+        "attended": 28,
+        "bunked": 11,
         "od_leaves": 1
       },
       "25HML34T": {
@@ -58,8 +58,8 @@
         "faculty": "Faculty",
         "conducted": 40,
         "attended": 30,
-        "bunked": 9,
-        "od_leaves": 1
+        "bunked": 8,
+        "od_leaves": 2
       },
       "25ML33IT": {
         "code": "25ML33IT",
@@ -68,10 +68,10 @@
         "credits": 4,
         "hours_per_week": 4,
         "difficulty": 0.75,
-        "faculty": "",
+        "faculty": "Faculty",
         "conducted": 40,
-        "attended": 19,
-        "bunked": 20,
+        "attended": 33,
+        "bunked": 6,
         "od_leaves": 1
       },
       "25HCS37P": {
