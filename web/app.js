@@ -458,6 +458,27 @@ async function syncCourse(s) {
 // 5. LIVE A* ALGORITHM VISUALIZER ENGINE
 // ================================================================
 
+// ─── Visualizer Speed & Telemetry Control ───────────────────────
+window.setSimSpeed = function(speed, btn) {
+    simSpeed = speed;
+    document.querySelectorAll(".btn-speed").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    if (simTimer) {
+        clearInterval(simTimer);
+        simTimer = setInterval(() => {
+            if (simStepIdx >= simSteps.length) {
+                clearInterval(simTimer);
+                simTimer = null;
+                const b = document.getElementById("terminal-status-badge");
+                if (b) b.textContent = "Completed ✅";
+                return;
+            }
+            playSimStep(simStepIdx, simSubjectStates);
+            simStepIdx++;
+        }, simSpeed);
+    }
+};
+
 /**
  * Computes the A* search steps client-side from the current student data.
  * Returns an array of animation frame descriptors that the visualizer renders.
@@ -470,21 +491,23 @@ function computeSimulationSteps(subjects, algo = "astar") {
     const steps = [];
 
     const algoName = algo === "greedy" ? "Greedy Best-First" : algo === "ucs" ? "Uniform Cost (UCS)" : "A* Search";
-    steps.push({ type: "init", message: `[INIT] ${algoName} starting. Subjects: ${subjects.length}, Target: ${TARGET}%, Week: ${CURRENT_WEEK}/15` });
-    steps.push({ type: "info", message: `[INFO] Remaining weeks: ${REM_WEEKS}. Evaluating mandatory attendance.` });
+    steps.push({ type: "init", message: `[INIT] ${algoName} online. Target: ${TARGET}%, Horizon: Week ${CURRENT_WEEK} to ${TOTAL_WEEKS}.` });
+    steps.push({ type: "info", message: `[INFO] Remaining weeks: ${REM_WEEKS}. Evaluating strain cost g(n) and admissible heuristic h(n).` });
 
     // Build subject states
     const subjectStates = subjects.map(s => {
-        const eff     = (s.attended || 0) + (s.od_leaves || 0);
-        const cond    = s.conducted || 0;
-        const rem     = (s.hours_per_week || 4) * REM_WEEKS;
-        const totalPot = cond + rem;
-        const minReq  = Math.max(0, Math.ceil(TARGET / 100 * totalPot) - eff);
-        const minNeeded = Math.min(minReq, rem);
-        const canSkip = rem - minNeeded;
-        const currPct = cond > 0 ? +((eff / cond) * 100).toFixed(1) : 100;
-        const feasible = (eff + rem) / Math.max(totalPot, 1) * 100 >= TARGET;
-        return { ...s, eff, cond, rem, totalPot, minNeeded, canSkip, currPct, feasible };
+        const eff        = (s.attended || 0) + (s.od_leaves || 0);
+        const cond       = s.conducted || 0;
+        const rem        = (s.hours_per_week || 4) * REM_WEEKS;
+        const totalPot   = cond + rem;
+        const minReq     = Math.max(0, Math.ceil(TARGET / 100 * totalPot) - eff);
+        const minNeeded  = Math.min(minReq, rem);
+        const canSkip    = rem - minNeeded;
+        const currPct    = cond > 0 ? +((eff / cond) * 100).toFixed(1) : 100;
+        const feasible   = (eff + rem) / Math.max(totalPot, 1) * 100 >= TARGET;
+        const difficulty = Number(s.difficulty) || 0.75;
+        const credits    = Number(s.credits) || 3;
+        return { ...s, eff, cond, rem, totalPot, minNeeded, canSkip, currPct, feasible, difficulty, credits };
     });
 
     let gCost = 0;
@@ -495,10 +518,10 @@ function computeSimulationSteps(subjects, algo = "astar") {
     if (algo === "ucs") hCost = 0;
 
     let queueSize = algo === "ucs" ? 100 : 1;
-    const initialFCost = algo === "greedy" ? hCost : algo === "ucs" ? gCost : hCost;
+    const initialFCost = algo === "greedy" ? hCost : algo === "ucs" ? gCost : +(gCost + hCost).toFixed(2);
 
     steps.push({ type: "state", nodeIdx: -1, gCost: algo === "greedy" ? 0 : gCost, hCost: algo === "ucs" ? 0 : hCost, fCost: initialFCost, queueSize,
-        message: `[STATE S₀] Root node. g=${algo==="greedy"?0:gCost}, h=${algo==="ucs"?0:hCost}, f=${initialFCost}. Frontier size: ${queueSize}` });
+        message: `[STATE S₀] Root state. g=${algo==="greedy"?0:gCost}, h=${algo==="ucs"?0:hCost}, f=${initialFCost}. Frontier queue: ${queueSize}` });
 
     subjectStates.forEach((s, i) => {
         const strain = +(s.minNeeded * s.difficulty * 1.2 * (s.credits / 3) * (1 + 0.02 * s.minNeeded)).toFixed(2);
@@ -507,258 +530,440 @@ function computeSimulationSteps(subjects, algo = "astar") {
         let displayH = hCost;
 
         if (algo !== "greedy") gCost = +(gCost + strain).toFixed(2);
-        if (algo !== "ucs") hCost = +(hCost - (s.minNeeded * s.difficulty * (s.credits / 3))).toFixed(2);
+        if (algo !== "ucs") hCost = +(Math.max(0, hCost - (s.minNeeded * s.difficulty * (s.credits / 3)))).toFixed(2);
         
         displayG = algo === "greedy" ? 0 : gCost;
         displayH = algo === "ucs" ? 0 : Math.max(0, hCost);
         const fCost = +(displayG + displayH).toFixed(2);
 
-        if (algo === "ucs") queueSize += Math.floor(Math.random() * 50) + 10;
-        else if (algo === "greedy") queueSize = subjects.length - i;
-        else queueSize = subjects.length - i + (Math.floor(Math.random() * 3));
+        if (algo === "ucs") queueSize += Math.floor(Math.random() * 30) + 12;
+        else if (algo === "greedy") queueSize = Math.max(1, subjects.length - i);
+        else queueSize = Math.max(1, subjects.length - i + (Math.floor(Math.random() * 2)));
 
         steps.push({
             type: "expand", nodeIdx: i, gCost: displayG, hCost: displayH, fCost,
             queueSize,
-            message: `[EXPAND S${i+1}] ${s.acronym} — Curr: ${s.currPct}% | Must attend: ${s.minNeeded}/${s.rem} | ${algo==="greedy" ? "Focusing on immediate heuristic." : "Evaluating cost."}`
+            message: `[EXPAND S${i+1}] ${s.acronym} — Attendance: ${s.currPct}% | Recovery target: ${s.minNeeded}/${s.rem} classes | ${algo==="greedy" ? "Heuristic greedy priority." : "Evaluating path cost."}`
         });
 
         // Pruning logic differs by algorithm
         if (algo === "astar") {
             for (let extra = 1; extra <= 2; extra++) {
-                const altStrain = +(strain * (1 + 0.1 * extra)).toFixed(2);
+                const altStrain = +(strain * (1 + 0.15 * extra)).toFixed(2);
                 const altG = +(gCost + altStrain).toFixed(2);
                 steps.push({
                     type: "prune", nodeIdx: i, branchExtra: extra, altG,
-                    message: `[PRUNE] Alt branch for ${s.acronym} (+${extra} classes) → g=${altG} > optimal. Eliminated.`
+                    message: `[PRUNE] Alt allocation for ${s.acronym} (+${extra} sessions) → g=${altG} exceeds optimal. Pruned.`
                 });
             }
         } else if (algo === "ucs") {
-            for (let extra = 1; extra <= 4; extra++) {
+            for (let extra = 1; extra <= 3; extra++) {
                 const altG = +(gCost + (strain * (1 + 0.2 * extra))).toFixed(2);
                 steps.push({
                     type: "prune", nodeIdx: i, branchExtra: extra, altG,
-                    message: `[EXPLORE] UCS checking exhaustive alt branch for ${s.acronym} → g=${altG}. Still searching...`
+                    message: `[EXPLORE] UCS evaluating alternate path for ${s.acronym} → g=${altG}.`
                 });
             }
         } else if (algo === "greedy") {
-            // Greedy barely prunes, just picks the best heuristic instantly
             steps.push({
                 type: "info", nodeIdx: i, branchExtra: 0, altG: displayG,
-                message: `[INFO] Greedy bypasses alternate branching to greedily minimize h(n).`
+                message: `[INFO] Greedy BFS bypasses alternate branch evaluations to greedily minimize h(n).`
             });
         }
 
         if (s.currPct < TARGET) {
             steps.push({ type: "select", nodeIdx: i,
-                message: `[SELECT ★] ${s.acronym} in DEFICIT. Scheduling ${s.minNeeded} of ${s.rem} remaining sessions.` });
+                message: `[SELECT ★] ${s.acronym} in DEFICIT (${s.currPct}%). Scheduling ${s.minNeeded}/${s.rem} mandatory sessions.` });
         } else {
             steps.push({ type: "select", nodeIdx: i,
-                message: `[SELECT ✓] ${s.acronym} SAFE. Can skip up to ${s.canSkip} sessions.` });
+                message: `[SELECT ✓] ${s.acronym} SAFE (${s.currPct}%). Buffer allowance: up to ${s.canSkip} sessions skippable.` });
         }
     });
 
-    const finalG = algo === "greedy" ? 0 : gCost;
+    const finalG = algo === "greedy" ? 0 : Number(gCost || 0);
     const finalH = 0;
-    const finalF = finalG + finalH;
+    const finalF = +(finalG + finalH).toFixed(2);
 
     steps.push({ type: "goal", gCost: finalG, hCost: finalH, fCost: finalF, queueSize: 0,
-        message: `[GOAL ✅] Path found by ${algoName}! Total evaluated metric f=${finalF}.` });
+        message: `[GOAL ✅] Optimal path converged by ${algoName}! Total academic strain f=${finalF}.` });
 
     subjectStates.forEach(s => {
         const icon = s.currPct < TARGET ? "🔴" : "🟢";
         steps.push({ type: "advisory", nodeIdx: -1,
-            message: `[ADVISORY ${icon}] ${s.acronym}: ${s.currPct}% → Must attend ${s.minNeeded}/${s.rem} remaining` });
+            message: `[ADVISORY ${icon}] ${s.acronym}: ${s.currPct}% → Required: attend ${s.minNeeded}/${s.rem} remaining sessions` });
     });
 
     return { steps, subjectStates, algo };
 }
 
 /**
- * Render the SVG state-space graph with animated edges.
- * Layout: radial from center root → subject nodes → goal node
+ * Render the Futuristic Cyberpunk SVG state-space graph with animated glowing edges,
+ * orbital reticles, pulse waves, and holographic nodes.
  */
 function renderWorkflowGraph(subjectStates, highlightIdx = -1, type = "") {
     const svg = document.getElementById("workflow-svg");
+    if (!svg) return;
     svg.innerHTML = "";
 
     const W = 1000, H = 320;
-    const CX = 80, CY = H / 2;   // Root node position
-    const GX = W - 80, GY = H / 2; // Goal node position
+    const CX = 85, CY = 160;     // Root start node position
+    const GX = 915, GY = 160;   // Goal target node position
     const N = subjectStates.length;
 
-    // Create defs for gradient and glow filter
+    // Build SVG defs for glowing filters, radial orbs, and laser gradients
     const defs = mkEl("defs");
-    const filter = mkEl("filter", { id: "glow" });
-    const feBlur = mkEl("feGaussianBlur", { stdDeviation: "3", result: "coloredBlur" });
-    const feMerge = mkEl("feMerge");
-    const feMN1 = mkEl("feMergeNode", { in: "coloredBlur" });
-    const feMN2 = mkEl("feMergeNode", { in: "SourceGraphic" });
-    feMerge.appendChild(feMN1); feMerge.appendChild(feMN2);
-    filter.appendChild(feBlur); filter.appendChild(feMerge);
-    defs.appendChild(filter);
 
-    // Arrowhead marker
-    const marker = mkEl("marker", { id: "arrow", markerWidth: "8", markerHeight: "8", refX: "6", refY: "3", orient: "auto" });
-    const arrowPath = mkEl("path", { d: "M0,0 L0,6 L8,3 z", fill: "#334155" });
-    marker.appendChild(arrowPath);
-    defs.appendChild(marker);
+    // Glow filters
+    const mkGlow = (id, stdDev, color) => {
+        const f = mkEl("filter", { id, x: "-50%", y: "-50%", width: "200%", height: "200%" });
+        const blur = mkEl("feGaussianBlur", { stdDeviation: stdDev, result: "blur" });
+        const flood = mkEl("feFlood", { "flood-color": color, "flood-opacity": "0.6", result: "color" });
+        const comp = mkEl("feComposite", { in: "color", in2: "blur", operator: "in", result: "glow" });
+        const merge = mkEl("feMerge");
+        const m1 = mkEl("feMergeNode", { in: "glow" });
+        const m2 = mkEl("feMergeNode", { in: "SourceGraphic" });
+        merge.appendChild(m1); merge.appendChild(m2);
+        f.appendChild(blur); f.appendChild(flood); f.appendChild(comp); f.appendChild(merge);
+        return f;
+    };
+
+    defs.appendChild(mkGlow("glowCyan", "4", "#38bdf8"));
+    defs.appendChild(mkGlow("glowSafe", "4", "#34d399"));
+    defs.appendChild(mkGlow("glowWarn", "4", "#fbbf24"));
+    defs.appendChild(mkGlow("glowCrit", "4", "#ef4444"));
+    defs.appendChild(mkGlow("glowGold", "6", "#facc15"));
+
+    // Laser conduits gradient
+    const laserGrad = mkEl("linearGradient", { id: "laserActiveGrad", x1: "0%", y1: "0%", x2: "100%", y2: "0%" });
+    const s1 = mkEl("stop", { offset: "0%", "stop-color": "#38bdf8" });
+    const s2 = mkEl("stop", { offset: "50%", "stop-color": "#818cf8" });
+    const s3 = mkEl("stop", { offset: "100%", "stop-color": "#34d399" });
+    laserGrad.appendChild(s1); laserGrad.appendChild(s2); laserGrad.appendChild(s3);
+    defs.appendChild(laserGrad);
+
+    // Radial orbs gradients
+    const mkOrb = (id, c1, c2, c3) => {
+        const rad = mkEl("radialGradient", { id, cx: "35%", cy: "35%", r: "65%" });
+        rad.appendChild(mkEl("stop", { offset: "0%", "stop-color": c1 }));
+        rad.appendChild(mkEl("stop", { offset: "60%", "stop-color": c2 }));
+        rad.appendChild(mkEl("stop", { offset: "100%", "stop-color": c3 }));
+        return rad;
+    };
+    defs.appendChild(mkOrb("orbRoot", "#38bdf8", "#0284c7", "#0c1f38"));
+    defs.appendChild(mkOrb("orbSafe", "#34d399", "#059669", "#062e24"));
+    defs.appendChild(mkOrb("orbWarn", "#fbbf24", "#d97706", "#3d2008"));
+    defs.appendChild(mkOrb("orbCrit", "#f87171", "#dc2626", "#3b0d0c"));
+    defs.appendChild(mkOrb("orbGoal", "#fef08a", "#eab308", "#14532d"));
+
+    // Arrowhead markers
+    const mkMarker = (id, fill) => {
+        const m = mkEl("marker", { id, markerWidth: "9", markerHeight: "9", refX: "7", refY: "3", orient: "auto" });
+        m.appendChild(mkEl("path", { d: "M0,0 L0,6 L8,3 z", fill }));
+        return m;
+    };
+    defs.appendChild(mkMarker("arrowCyan", "#38bdf8"));
+    defs.appendChild(mkMarker("arrowGold", "#facc15"));
 
     svg.appendChild(defs);
 
-    // Draw background grid lines
-    for (let x = 0; x < W; x += 80) {
-        const line = mkEl("line", { x1: x, y1: 0, x2: x, y2: H, stroke: "rgba(255,255,255,0.03)", "stroke-width": "1" });
-        svg.appendChild(line);
+    // Background Cyber Grid lines & Coordinate Crosses
+    for (let x = 80; x < W; x += 120) {
+        svg.appendChild(mkEl("line", { x1: x, y1: 0, x2: x, y2: H, stroke: "rgba(99,102,241,0.05)", "stroke-width": "1" }));
+    }
+    for (let y = 40; y < H; y += 80) {
+        svg.appendChild(mkEl("line", { x1: 0, y1: y, x2: W, y2: y, stroke: "rgba(99,102,241,0.05)", "stroke-width": "1" }));
     }
 
-    // Subject node positions (spread vertically in center column)
-    const MX = W / 2;
-    const subjPositions = subjectStates.map((_, i) => ({
-        x: MX + (i % 2 === 0 ? -80 : 80),
-        y: 40 + (i * ((H - 60) / (N - 1)))
-    }));
+    // Coordinate crosshairs
+    const crosses = [
+        { x: 200, y: 70 }, { x: 480, y: 70 }, { x: 760, y: 70 },
+        { x: 200, y: 250 }, { x: 480, y: 250 }, { x: 760, y: 250 }
+    ];
+    crosses.forEach(c => {
+        const t = mkEl("text", { x: c.x, y: c.y, fill: "rgba(99,102,241,0.25)", "font-size": "10", "font-family": "monospace", "text-anchor": "middle" });
+        t.textContent = "+";
+        svg.appendChild(t);
+    });
 
-    // Draw pruned "ghost" branches (faint)
+    // Staggered Feed-Forward Cyber Node Coordinates (2 balanced columns)
+    const subjPositions = subjectStates.map((_, i) => {
+        const isCol1 = i % 2 === 0;
+        const colX = isCol1 ? 340 : 620;
+        const rowInCol = Math.floor(i / 2);
+        const colItems = isCol1 ? Math.ceil(N / 2) : Math.floor(N / 2);
+        const startY = isCol1 ? 55 : 85;
+        const gapY = isCol1 ? 68 : 75;
+        const y = colItems > 1 ? startY + rowInCol * gapY : H / 2;
+        return { x: colX, y: Math.round(y) };
+    });
+
+    // Draw Pruned Hazard Branches
     subjectStates.forEach((s, i) => {
         const pos = subjPositions[i];
         for (let b = 1; b <= 2; b++) {
-            const ghostX = pos.x + (b === 1 ? 70 : -70);
-            const ghostY = pos.y - 45;
-            const ghost = mkEl("line", {
+            const ghostX = pos.x + (b === 1 ? 58 : -58);
+            const ghostY = pos.y - 36;
+            
+            // Pruned laser conduit
+            const gLine = mkEl("line", {
                 x1: pos.x, y1: pos.y, x2: ghostX, y2: ghostY,
-                stroke: "#ef4444", "stroke-width": "1",
-                "stroke-dasharray": "4 4", "stroke-opacity": "0.25"
+                stroke: "#ef4444", "stroke-width": "1.2",
+                "stroke-dasharray": "3 3", "stroke-opacity": "0.35"
             });
-            svg.appendChild(ghost);
-            const ghostCircle = mkEl("circle", {
-                cx: ghostX, cy: ghostY, r: "10",
-                fill: "rgba(239,68,68,0.1)", stroke: "#ef4444",
-                "stroke-width": "1", "stroke-opacity": "0.3"
+            svg.appendChild(gLine);
+
+            // Pruned diamond/hazard badge
+            const gBox = mkEl("rect", {
+                x: ghostX - 8, y: ghostY - 8, width: 16, height: 16, rx: 3,
+                fill: "rgba(239,68,68,0.15)", stroke: "#ef4444",
+                "stroke-width": "1", "stroke-opacity": "0.4"
             });
-            svg.appendChild(ghostCircle);
-            const ghostLabel = mkEl("text", { x: ghostX, y: ghostY + 4, "class": "algo-node-cost", "fill": "#ef4444", "fill-opacity": "0.45" });
-            ghostLabel.textContent = "✕";
-            svg.appendChild(ghostLabel);
+            svg.appendChild(gBox);
+
+            const gTxt = mkEl("text", {
+                x: ghostX, y: ghostY + 3.5,
+                fill: "#f87171", "font-size": "9", "font-family": "monospace",
+                "text-anchor": "middle", "fill-opacity": "0.7"
+            });
+            gTxt.textContent = "✕";
+            svg.appendChild(gTxt);
         }
     });
 
-    // Draw optimal path edges: root → each subject → goal
+    // Draw Feed-Forward Laser Conduits (Edges)
     subjectStates.forEach((s, i) => {
         const pos = subjPositions[i];
         const isActive = i <= highlightIdx;
-        const edgeColor = isActive ? "#60a5fa" : "#334155";
-        const edgeW = isActive ? "2" : "1";
-        const dashArr = isActive ? "none" : "5 4";
+        const edgeColor = isActive ? "url(#laserActiveGrad)" : "rgba(255,255,255,0.08)";
+        const edgeW = isActive ? "2.5" : "1";
+        const dashArr = isActive ? "none" : "4 4";
 
-        // Root → Subject edge
-        const e1 = mkEl("line", {
-            x1: CX + 22, y1: CY, x2: pos.x - 22, y2: pos.y,
-            stroke: edgeColor, "stroke-width": edgeW,
-            "stroke-dasharray": dashArr,
-            "marker-end": isActive ? "url(#arrow)" : ""
-        });
-        if (isActive) e1.style.animation = "dashFlow 1.2s linear infinite";
-        svg.appendChild(e1);
+        // From Start Node (S₀) to Col 1 nodes
+        if (i % 2 === 0) {
+            const eStart = mkEl("line", {
+                x1: CX + 28, y1: CY, x2: pos.x - 30, y2: pos.y,
+                stroke: edgeColor, "stroke-width": edgeW,
+                "stroke-dasharray": dashArr,
+                "marker-end": isActive ? "url(#arrowCyan)" : ""
+            });
+            if (isActive) eStart.classList.add("laser-active-path");
+            svg.appendChild(eStart);
+        }
 
-        // Subject → Goal edge
-        const e2 = mkEl("line", {
-            x1: pos.x + 22, y1: pos.y, x2: GX - 22, y2: GY,
-            stroke: isActive ? "#34d399" : "#1e293b", "stroke-width": isActive ? "2" : "1",
-            "stroke-dasharray": isActive && i === highlightIdx ? "none" : "5 4",
-            "marker-end": (isActive && i === N - 1 && type === "goal") ? "url(#arrow)" : ""
-        });
-        svg.appendChild(e2);
+        // Cross-conduits between Col 1 and Col 2
+        if (i < N - 1) {
+            const nextPos = subjPositions[i + 1];
+            const isStepActive = i < highlightIdx;
+            const eStep = mkEl("line", {
+                x1: pos.x + 30, y1: pos.y, x2: nextPos.x - 30, y2: nextPos.y,
+                stroke: isStepActive ? "url(#laserActiveGrad)" : "rgba(255,255,255,0.06)",
+                "stroke-width": isStepActive ? "2.5" : "1",
+                "stroke-dasharray": isStepActive ? "none" : "4 4",
+                "marker-end": isStepActive ? "url(#arrowCyan)" : ""
+            });
+            if (isStepActive) eStep.classList.add("laser-active-path");
+            svg.appendChild(eStep);
+        }
+
+        // From Col 2 nodes to Goal
+        if (i % 2 !== 0 || i === N - 1) {
+            const isGoalPath = (highlightIdx >= i && (type === "goal" || type === "advisory"));
+            const eGoal = mkEl("line", {
+                x1: pos.x + 30, y1: pos.y, x2: GX - 30, y2: GY,
+                stroke: isGoalPath ? "#34d399" : "rgba(255,255,255,0.06)",
+                "stroke-width": isGoalPath ? "2.5" : "1",
+                "stroke-dasharray": isGoalPath ? "none" : "4 4",
+                "marker-end": isGoalPath ? "url(#arrowGold)" : ""
+            });
+            if (isGoalPath) eGoal.classList.add("laser-active-path");
+            svg.appendChild(eGoal);
+        }
     });
 
-    // Draw subject nodes
+    // Draw Subject Nodes (Cyber Orbs with Attendance Arc Meters)
     subjectStates.forEach((s, i) => {
         const pos = subjPositions[i];
         const isHighlight = i === highlightIdx;
         const isPast = i < highlightIdx;
-        let fillColor, strokeColor;
-        if (s.currPct < 75) { fillColor = isHighlight ? "#ef4444" : isPast ? "#7f1d1d" : "#1e293b"; strokeColor = "#ef4444"; }
-        else if (s.currPct < 80) { fillColor = isHighlight ? "#f59e0b" : isPast ? "#78350f" : "#1e293b"; strokeColor = "#f59e0b"; }
-        else { fillColor = isHighlight ? "#10b981" : isPast ? "#064e3b" : "#1e293b"; strokeColor = "#10b981"; }
+
+        let orbGrad, strokeColor, glowFilter;
+        if (s.currPct < 75) {
+            orbGrad = "url(#orbCrit)"; strokeColor = "#ef4444"; glowFilter = "url(#glowCrit)";
+        } else if (s.currPct < 80) {
+            orbGrad = "url(#orbWarn)"; strokeColor = "#fbbf24"; glowFilter = "url(#glowWarn)";
+        } else {
+            orbGrad = "url(#orbSafe)"; strokeColor = "#34d399"; glowFilter = "url(#glowSafe)";
+        }
 
         const nodeGroup = mkEl("g", { class: "algo-node" });
 
-        const glow = isHighlight ? { filter: "url(#glow)" } : {};
-        const circle = mkEl("circle", {
-            cx: pos.x, cy: pos.y, r: isHighlight ? "26" : "20",
-            fill: fillColor, stroke: strokeColor, "stroke-width": isHighlight ? "3" : "1.5",
-            ...glow
-        });
-        nodeGroup.appendChild(circle);
-
-        // Status ring for past nodes
-        if (isPast) {
-            const ring = mkEl("circle", { cx: pos.x, cy: pos.y, r: "24", fill: "none", stroke: strokeColor, "stroke-width": "1", "stroke-opacity": "0.4", "stroke-dasharray": "3 3" });
-            nodeGroup.appendChild(ring);
+        // Sonar expanding wave ripple on active node
+        if (isHighlight) {
+            const ripple = mkEl("circle", {
+                cx: pos.x, cy: pos.y, r: "26",
+                fill: "none", stroke: strokeColor, "stroke-width": "2",
+                class: "sonar-pulse-circle"
+            });
+            nodeGroup.appendChild(ripple);
         }
 
-        const label = mkEl("text", { x: pos.x, y: pos.y - 3, class: "algo-node-label" });
-        label.textContent = s.acronym;
+        // Outer Attendance Percentage Arc Meter
+        const R = isHighlight ? 28 : 23;
+        const circ = 2 * Math.PI * R;
+        const pctClamped = Math.max(0, Math.min(100, s.currPct));
+        const arcFill = (pctClamped / 100) * circ;
+
+        // Meter Track
+        const meterTrack = mkEl("circle", {
+            cx: pos.x, cy: pos.y, r: R,
+            fill: "none", stroke: "rgba(255,255,255,0.08)", "stroke-width": "2.5"
+        });
+        nodeGroup.appendChild(meterTrack);
+
+        // Meter Arc
+        const meterArc = mkEl("circle", {
+            cx: pos.x, cy: pos.y, r: R,
+            fill: "none", stroke: strokeColor, "stroke-width": isHighlight ? "3.5" : "2.5",
+            "stroke-dasharray": `${arcFill} ${circ}`,
+            "stroke-dashoffset": `${circ * 0.25}`,
+            "stroke-linecap": "round",
+            ...(isHighlight ? { filter: glowFilter } : {})
+        });
+        nodeGroup.appendChild(meterArc);
+
+        // Inner Cyber Core Orb
+        const innerR = isHighlight ? 23 : 19;
+        const orb = mkEl("circle", {
+            cx: pos.x, cy: pos.y, r: innerR,
+            fill: isPast || isHighlight ? orbGrad : "#0b1220",
+            stroke: strokeColor,
+            "stroke-width": isHighlight ? "2" : "1",
+            ...(isHighlight ? { filter: glowFilter } : {})
+        });
+        nodeGroup.appendChild(orb);
+
+        // Acronym Text
+        const label = mkEl("text", {
+            x: pos.x, y: pos.y - 3,
+            fill: "#ffffff", "font-size": isHighlight ? "11" : "9.5",
+            "font-family": "'JetBrains Mono', monospace",
+            "font-weight": "800", "text-anchor": "middle", "pointer-events": "none"
+        });
+        label.textContent = s.acronym || s.code;
         nodeGroup.appendChild(label);
 
-        const costLabel = mkEl("text", { x: pos.x, y: pos.y + 12, class: "algo-node-cost" });
-        costLabel.textContent = `${s.currPct}%`;
-        nodeGroup.appendChild(costLabel);
-
-        // Attendance bar under node
-        if (isPast || isHighlight) {
-            const barW = 40, barH = 4;
-            const fillW = Math.max(0, Math.min(barW, (s.currPct / 100) * barW));
-            const barBg = mkEl("rect", { x: pos.x - barW / 2, y: pos.y + 28, width: barW, height: barH, rx: 2, fill: "#1e293b" });
-            const barFill = mkEl("rect", { x: pos.x - barW / 2, y: pos.y + 28, width: fillW, height: barH, rx: 2, fill: strokeColor });
-            nodeGroup.appendChild(barBg);
-            nodeGroup.appendChild(barFill);
-        }
+        // Percentage Text
+        const pctText = mkEl("text", {
+            x: pos.x, y: pos.y + 10,
+            fill: strokeColor, "font-size": isHighlight ? "9.5" : "8",
+            "font-family": "'JetBrains Mono', monospace",
+            "font-weight": "700", "text-anchor": "middle", "pointer-events": "none"
+        });
+        pctText.textContent = `${s.currPct}%`;
+        nodeGroup.appendChild(pctText);
 
         svg.appendChild(nodeGroup);
     });
 
-    // Root node (S₀)
+    // Draw Root Node (S₀ Quantum Reactor Core)
     const rootGrp = mkEl("g");
-    const rootCircle = mkEl("circle", { cx: CX, cy: CY, r: "26", fill: "#1e40af", stroke: "#60a5fa", "stroke-width": "2" });
-    const rootLabel = mkEl("text", { x: CX, y: CY - 3, class: "algo-node-label" });
+
+    // Rotating orbital reticle
+    const rootReticle = mkEl("circle", {
+        cx: CX, cy: CY, r: "33",
+        fill: "none", stroke: "rgba(56,189,248,0.3)", "stroke-width": "1.5",
+        "stroke-dasharray": "6 4 2 4"
+    });
+    rootGrp.appendChild(rootReticle);
+
+    // Glowing core
+    const rootCore = mkEl("circle", {
+        cx: CX, cy: CY, r: "26",
+        fill: "url(#orbRoot)", stroke: "#38bdf8", "stroke-width": "2.5",
+        filter: "url(#glowCyan)"
+    });
+    rootGrp.appendChild(rootCore);
+
+    const rootLabel = mkEl("text", {
+        x: CX, y: CY - 3, fill: "#ffffff", "font-size": "12",
+        "font-family": "'JetBrains Mono', monospace", "font-weight": "800",
+        "text-anchor": "middle", "pointer-events": "none"
+    });
     rootLabel.textContent = "S₀";
-    const rootSub = mkEl("text", { x: CX, y: CY + 12, class: "algo-node-cost" });
+    rootGrp.appendChild(rootLabel);
+
+    const rootSub = mkEl("text", {
+        x: CX, y: CY + 10, fill: "#7dd3fc", "font-size": "8",
+        "font-family": "'JetBrains Mono', monospace", "font-weight": "700",
+        "text-anchor": "middle", "pointer-events": "none"
+    });
     rootSub.textContent = "START";
-    rootGrp.appendChild(rootCircle); rootGrp.appendChild(rootLabel); rootGrp.appendChild(rootSub);
+    rootGrp.appendChild(rootSub);
+
     svg.appendChild(rootGrp);
 
-    // Goal node
+    // Draw Goal Node (Holographic Quantum Target Portal)
     const goalReached = (type === "goal" || type === "advisory") && highlightIdx >= N - 1;
     const goalGrp = mkEl("g");
-    const goalCircle = mkEl("circle", {
-        cx: GX, cy: GY, r: goalReached ? "30" : "22",
-        fill: goalReached ? "#065f46" : "#1e293b",
-        stroke: goalReached ? "#34d399" : "#334155",
-        "stroke-width": goalReached ? "3" : "1.5",
-        ...(goalReached ? { filter: "url(#glow)" } : {})
+
+    // Goal outer reticle
+    const goalReticle = mkEl("circle", {
+        cx: GX, cy: GY, r: goalReached ? "36" : "31",
+        fill: "none",
+        stroke: goalReached ? "#facc15" : "rgba(255,255,255,0.15)",
+        "stroke-width": goalReached ? "2" : "1",
+        "stroke-dasharray": "8 4"
     });
-    const goalLabel = mkEl("text", { x: GX, y: GY - 4, class: "algo-node-label" });
-    goalLabel.textContent = goalReached ? "✅" : "🏁";
-    const goalSub = mkEl("text", { x: GX, y: GY + 12, class: "algo-node-cost" });
-    goalSub.textContent = goalReached ? "GOAL" : "TARGET";
-    goalGrp.appendChild(goalCircle); goalGrp.appendChild(goalLabel); goalGrp.appendChild(goalSub);
+    goalGrp.appendChild(goalReticle);
+
+    // Goal Core Orb
+    const goalCore = mkEl("circle", {
+        cx: GX, cy: GY, r: goalReached ? "28" : "24",
+        fill: goalReached ? "url(#orbGoal)" : "#0b1220",
+        stroke: goalReached ? "#facc15" : "rgba(255,255,255,0.2)",
+        "stroke-width": goalReached ? "3" : "1.5",
+        ...(goalReached ? { filter: "url(#glowGold)" } : {})
+    });
+    goalGrp.appendChild(goalCore);
+
+    const goalLabel = mkEl("text", {
+        x: GX, y: GY - 3, fill: goalReached ? "#ffffff" : "#cbd5e1",
+        "font-size": goalReached ? "12" : "10",
+        "font-family": "'JetBrains Mono', monospace", "font-weight": "800",
+        "text-anchor": "middle", "pointer-events": "none"
+    });
+    goalLabel.textContent = goalReached ? "GOAL" : "TARGET";
+    goalGrp.appendChild(goalLabel);
+
+    const goalSub = mkEl("text", {
+        x: GX, y: GY + 10, fill: goalReached ? "#fef08a" : "#64748b",
+        "font-size": "8",
+        "font-family": "'JetBrains Mono', monospace", "font-weight": "700",
+        "text-anchor": "middle", "pointer-events": "none"
+    });
+    goalSub.textContent = goalReached ? "CONVERGED" : "≥ 75.0%";
+    goalGrp.appendChild(goalSub);
+
     svg.appendChild(goalGrp);
 
-    // Legend bar at bottom
+    // Cyber Legend Bar at Bottom
     const legItems = [
-        { color: "#60a5fa", label: "─── Optimal path" },
-        { color: "#ef4444", label: "╌╌╌ Pruned branch" },
-        { color: "#10b981", label: "● Safe (≥80%)" },
-        { color: "#f59e0b", label: "● Warning (75-80%)" },
+        { color: "#38bdf8", label: "─── Active Laser Path" },
+        { color: "#ef4444", label: "╌╌╌ Pruned Sub-tree" },
+        { color: "#34d399", label: "● Safe (≥80%)" },
+        { color: "#fbbf24", label: "● Warning (75-80%)" },
         { color: "#ef4444", label: "● Critical (<75%)" },
     ];
     legItems.forEach((item, idx) => {
-        const lx = 20 + idx * 188;
-        const dot = mkEl("rect", { x: lx, y: H - 18, width: 12, height: 4, rx: 2, fill: item.color });
-        const lbl = mkEl("text", { x: lx + 16, y: H - 12, class: "algo-legend-label" });
+        const lx = 20 + idx * 192;
+        const bar = mkEl("rect", { x: lx, y: H - 18, width: 14, height: 4, rx: 2, fill: item.color });
+        const lbl = mkEl("text", {
+            x: lx + 18, y: H - 14,
+            fill: "#94a3b8", "font-size": "9",
+            "font-family": "'JetBrains Mono', monospace", "font-weight": "600"
+        });
         lbl.textContent = item.label;
-        svg.appendChild(dot);
+        svg.appendChild(bar);
         svg.appendChild(lbl);
     });
 }
