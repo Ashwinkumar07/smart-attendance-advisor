@@ -392,61 +392,103 @@
                 <!-- ================= MODULE 3: A* WORKFLOW VISUALIZER ================= -->
                 <div class="content-pane" id="pane-visualizer">
                     <section class="content-card algo-workflow-card" style="margin-bottom:24px;">
-                        <div class="card-header">
+                        <div class="card-header cyber-card-header">
                             <div>
-                                <div class="badge-section">LIVE AI WORKFLOW VISUALIZER</div>
-                                <h2>A* Search Algorithm Execution Graph &amp; Pipeline</h2>
-                                <p class="card-subtitle">Real-time state-space graph traversing S₀ &rarr; S₇, evaluating strain cost g(n) and heuristic estimate h(n).</p>
+                                <div class="badge-section cyber-badge">
+                                    <span class="cyber-dot"></span>
+                                    <span>AI/ML NEURAL WORKFLOW MATRIX</span>
+                                </div>
+                                <h2 class="cyber-title">A* Heuristic State-Space Algorithm Visualizer</h2>
+                                <p class="card-subtitle cyber-subtitle">Live graph traversing root state S₀ &rarr; S₇ &rarr; S_GOAL, evaluating dynamic strain cost g(n) and admissible heuristic h(n).</p>
                             </div>
-                            <div class="workflow-controls">
-                                <select id="algo-select" class="dropdown-styled" style="margin-right: 8px;">
-                                    <option value="astar" selected>A* Search (Optimal)</option>
-                                    <option value="greedy">Greedy Best-First (Fast)</option>
+                            <div class="workflow-controls cyber-controls">
+                                <select id="algo-select" class="dropdown-styled cyber-dropdown">
+                                    <option value="astar" selected>A* Search (Optimal f = g + h)</option>
+                                    <option value="greedy">Greedy BFS (Fast Heuristic)</option>
                                     <option value="ucs">Uniform Cost Search (Exhaustive)</option>
                                 </select>
-                                <button class="btn btn-primary btn-sm" id="btn-play-sim">&#9654; Run Live</button>
-                                <button class="btn btn-secondary btn-sm" id="btn-step-sim">&#9197; Step</button>
-                                <button class="btn btn-outline btn-sm" id="btn-instant-sim">&#9889; Instant</button>
-                                <button class="btn btn-secondary btn-sm" id="btn-reset-sim">&#128257; Reset</button>
+                                <div class="sim-speed-pills">
+                                    <button type="button" class="btn-speed active" onclick="setSimSpeed(480, this)">1x</button>
+                                    <button type="button" class="btn-speed" onclick="setSimSpeed(240, this)">2x</button>
+                                    <button type="button" class="btn-speed" onclick="setSimSpeed(80, this)">4x</button>
+                                </div>
+                                <button class="btn btn-cyber-primary btn-sm" id="btn-play-sim">&#9654; Run Live</button>
+                                <button class="btn btn-cyber-secondary btn-sm" id="btn-step-sim">&#9197; Step</button>
+                                <button class="btn btn-cyber-instant btn-sm" id="btn-instant-sim">&#9889; Instant</button>
+                                <button class="btn btn-cyber-outline btn-sm" id="btn-reset-sim">&#128257; Reset</button>
                             </div>
                         </div>
 
-                        <!-- HUD Strip -->
-                        <div class="algo-hud-strip">
-                            <div class="hud-item">
-                                <span class="hud-lbl">Current State:</span>
-                                <strong class="hud-val text-blue" id="hud-current-node">Initial State S₀</strong>
+                        <!-- Holographic Neon HUD Strip -->
+                        <div class="algo-hud-strip cyber-hud-strip">
+                            <div class="hud-item hud-item-state">
+                                <div class="hud-item-top">
+                                    <span class="hud-tag">STATE</span>
+                                    <span class="hud-icon">📍</span>
+                                </div>
+                                <div class="hud-lbl">Current Frontier Node</div>
+                                <strong class="hud-val text-cyan" id="hud-current-node">Initial State S₀</strong>
                             </div>
-                            <div class="hud-item">
-                                <span class="hud-lbl">Effort Cost g(n):</span>
-                                <strong class="hud-val" id="hud-g-cost">0.00</strong>
+
+                            <div class="hud-item hud-item-g">
+                                <div class="hud-item-top">
+                                    <span class="hud-tag">STRAIN</span>
+                                    <span class="hud-icon">⚡</span>
+                                </div>
+                                <div class="hud-lbl">Effort Cost g(n)</div>
+                                <strong class="hud-val text-blue" id="hud-g-cost">0.00</strong>
                             </div>
-                            <div class="hud-item">
-                                <span class="hud-lbl">Heuristic h(n):</span>
-                                <strong class="hud-val" id="hud-h-cost">0.00</strong>
+
+                            <div class="hud-item hud-item-h">
+                                <div class="hud-item-top">
+                                    <span class="hud-tag">HEURISTIC</span>
+                                    <span class="hud-icon">🔮</span>
+                                </div>
+                                <div class="hud-lbl">Future Distance h(n)</div>
+                                <strong class="hud-val text-purple" id="hud-h-cost">0.00</strong>
                             </div>
-                            <div class="hud-item">
-                                <span class="hud-lbl">Total f(n) = g + h:</span>
+
+                            <div class="hud-item hud-item-f">
+                                <div class="hud-item-top">
+                                    <span class="hud-tag">TOTAL EVAL</span>
+                                    <span class="hud-icon">🎯</span>
+                                </div>
+                                <div class="hud-lbl">Evaluation f(n) = g + h</div>
                                 <strong class="hud-val text-green" id="hud-f-cost">0.00</strong>
                             </div>
-                            <div class="hud-item">
-                                <span class="hud-lbl">Frontier Queue:</span>
-                                <strong class="hud-val" id="hud-queue-size">1 nodes</strong>
+
+                            <div class="hud-item hud-item-queue">
+                                <div class="hud-item-top">
+                                    <span class="hud-tag">EXPLORATION</span>
+                                    <span class="hud-icon">🌐</span>
+                                </div>
+                                <div class="hud-lbl">Priority Queue</div>
+                                <strong class="hud-val text-amber" id="hud-queue-size">1 nodes</strong>
                             </div>
                         </div>
 
-                        <!-- Animated SVG Graph -->
-                        <div class="workflow-graph-wrapper">
+                        <!-- Animated High-Tech SVG Graph Viewport -->
+                        <div class="workflow-graph-wrapper cyber-graph-viewport">
                             <svg id="workflow-svg" class="workflow-svg" viewBox="0 0 1000 320"></svg>
                         </div>
 
-                        <!-- Terminal Log -->
-                        <div class="decision-terminal-box">
-                            <div class="terminal-header">
-                                <span>&#9889; Search Execution Trace &amp; Advisory Log</span>
-                                <span class="terminal-badge" id="terminal-status-badge">Awaiting Execution</span>
+                        <!-- Futuristic Cyber Terminal Log -->
+                        <div class="decision-terminal-box cyber-terminal">
+                            <div class="terminal-header cyber-term-header">
+                                <div class="terminal-header-left">
+                                    <span class="terminal-dots">
+                                        <span class="tdot red"></span>
+                                        <span class="tdot yellow"></span>
+                                        <span class="tdot green"></span>
+                                    </span>
+                                    <span class="terminal-title">⚡ A* SEARCH MATRIX • LIVE EXECUTION TELEMETRY</span>
+                                </div>
+                                <div class="terminal-header-right">
+                                    <span class="terminal-badge" id="terminal-status-badge">Awaiting Execution</span>
+                                    <button type="button" class="btn-clear-term" onclick="clearTerminal()" title="Clear Terminal Log">Clear</button>
+                                </div>
                             </div>
-                            <div class="terminal-log-content" id="terminal-log-list"></div>
+                            <div class="terminal-log-content cyber-term-content" id="terminal-log-list"></div>
                         </div>
                     </section>
 
