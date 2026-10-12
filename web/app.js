@@ -767,7 +767,7 @@ function renderWorkflowGraph(subjectStates, highlightIdx = -1, type = "") {
 
         // From Col 2 nodes to Goal
         if (i % 2 !== 0 || i === N - 1) {
-            const isGoalPath = (highlightIdx >= i && (type === "goal" || type === "advisory"));
+            const isGoalPath = (type === "goal" || type === "advisory");
             const eGoal = mkEl("line", {
                 x1: pos.x + 30, y1: pos.y, x2: GX - 30, y2: GY,
                 stroke: isGoalPath ? "#34d399" : "rgba(255,255,255,0.06)",
@@ -903,7 +903,7 @@ function renderWorkflowGraph(subjectStates, highlightIdx = -1, type = "") {
     svg.appendChild(rootGrp);
 
     // Draw Goal Node (Holographic Quantum Target Portal)
-    const goalReached = (type === "goal" || type === "advisory") && highlightIdx >= N - 1;
+    const goalReached = type === "goal" || type === "advisory";
     const goalGrp = mkEl("g");
 
     // Goal outer reticle
